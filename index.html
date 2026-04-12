@@ -161,9 +161,8 @@ header {
 /* ─── GRID DE AMBIENTES ─── */
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, 320px);
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 20px;
-  justify-content: start;
 }
 
 /* ─── CARD DE AMBIENTE ─── */
@@ -802,6 +801,7 @@ header {
   margin-bottom: 18px;
 }
 .confirm-field { margin-bottom: 14px; }
+.confirm-field.hide { display: none; }
 .confirm-field label {
   display: block;
   font-size: .68rem;
@@ -1023,13 +1023,13 @@ header {
     <h3 id="confirmTitle">Confirmar ação</h3>
     <p id="confirmDesc">Digite suas credenciais para continuar.</p>
     <div class="confirm-error" id="confirmError"></div>
-    <div class="confirm-field">
+    <div class="confirm-field hide">
       <label>Usuário</label>
       <input id="confirmUser" type="text" placeholder="Seu usuário" autocomplete="username">
     </div>
     <div class="confirm-field">
-      <label>Senha</label>
-      <input id="confirmPass" type="password" placeholder="Sua senha" autocomplete="current-password">
+      <label>Senha do painel</label>
+      <input id="confirmPass" type="password" placeholder="Digite sua senha" autocomplete="current-password">
     </div>
     <div class="confirm-actions">
       <button class="confirm-cancel" id="confirmCancel">Cancelar</button>
@@ -1082,13 +1082,15 @@ function calcCardSize() {
   const W       = grid.clientWidth;
   const compact = n > 10;
 
+  // Calcula quantos cards cabem por linha e o tamanho mínimo ideal
   const maxCols = compact ? 8 : 6;
   const cols    = Math.min(n, maxCols);
   const gap     = 20 * (cols - 1);
-  const size    = Math.max(compact ? 160 : 200, Math.floor((W - gap) / cols));
+  const minSize = Math.max(compact ? 160 : 220, Math.floor((W - gap) / cols));
 
-  // Seta colunas fixas — sem 1fr para não esticar
-  grid.style.gridTemplateColumns = `repeat(auto-fill, ${size}px)`;
+  // Usa minmax(minSize, 1fr) — cards crescem para preencher mas nunca ficam
+  // menores que minSize, mantendo o estilo original de grade fluída
+  grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${minSize}px, 1fr))`;
   grid.classList.toggle('compact', compact);
 }
 
@@ -1752,7 +1754,9 @@ setTimeout(() => {
     _pendingCallback = callback;
     document.getElementById('confirmTitle').textContent = title;
     document.getElementById('confirmDesc').textContent  = desc;
-    document.getElementById('confirmUser').value = '';
+    // Preenche usuário automaticamente — operador só precisa digitar a senha
+    const creds = getCredentials();
+    document.getElementById('confirmUser').value = creds ? creds.user : '';
     document.getElementById('confirmPass').value = '';
     hideConfirmError();
 
