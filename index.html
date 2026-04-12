@@ -636,7 +636,7 @@ header {
       <div class="cfg-grid">
         <div class="form-group">
           <label>Broker (host)</label>
-          <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud" value="cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud">
+          <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud">
         </div>
         <div class="form-group">
           <label>Porta</label>
@@ -644,11 +644,11 @@ header {
         </div>
         <div class="form-group">
           <label>Usuário</label>
-          <input id="cfgUser" type="text" placeholder="seu-usuario" value="monitortemp">
+          <input id="cfgUser" type="text" placeholder="seu-usuario">
         </div>
         <div class="form-group">
           <label>Senha</label>
-          <input id="cfgPass" type="password" placeholder="••••••••" value="061084Cc@">
+          <input id="cfgPass" type="password" placeholder="••••••••">
         </div>
       </div>
       <button class="btn-primary" id="btnConnect" style="width:100%;margin-top:4px">Conectar ao MQTT</button>
@@ -896,11 +896,12 @@ function subscribeRoom(roomId) {
 }
 
 function connectMQTT() {
-  // Credenciais fixas — HiveMQ Cloud
-  const broker = document.getElementById('cfgBroker').value.trim() || "cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud";
+  const broker = document.getElementById('cfgBroker').value.trim();
   const port   = parseInt(document.getElementById('cfgPort').value) || 8884;
-  const user   = document.getElementById('cfgUser').value.trim() || "monitortemp";
-  const pass   = document.getElementById('cfgPass').value || "061084Cc@";
+  const user   = document.getElementById('cfgUser').value.trim();
+  const pass   = document.getElementById('cfgPass').value;
+
+  if (!broker) { toast('Informe o broker!', 'error'); return; }
 
   mqttCfg = { broker, port, user, pass };
   saveMqttCfg();
@@ -1089,14 +1090,16 @@ rooms.forEach(room => {
   }
 });
 
-// Auto-conecta sempre ao carregar com credenciais fixas
-setTimeout(() => {
-  document.getElementById('cfgBroker').value = "cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud";
-  document.getElementById('cfgPort').value   = 8884;
-  document.getElementById('cfgUser').value   = "monitortemp";
-  document.getElementById('cfgPass').value   = "061084Cc@";
-  if (!mqttClient) connectMQTT();
-}, 800);
+// Auto-reconecta se tem config salva (apenas uma vez, ao carregar)
+if (mqttCfg.broker) {
+  setTimeout(() => {
+    document.getElementById('cfgBroker').value = mqttCfg.broker;
+    document.getElementById('cfgPort').value   = mqttCfg.port || 8884;
+    document.getElementById('cfgUser').value   = mqttCfg.user || '';
+    document.getElementById('cfgPass').value   = mqttCfg.pass || '';
+    if (!mqttClient) connectMQTT();  // só conecta se ainda não há cliente
+  }, 800);
+}
 </script>
 </body>
 </html>
