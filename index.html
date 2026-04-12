@@ -856,12 +856,14 @@ function setOffline(roomId) {
    ROOMS CRUD
 ═════════════════════════════════════════ */
 function addRoom(label, topic, icon) {
-  const id = topic.replace(/[^a-z0-9_-]/gi, '_');
+  // Normaliza: minúsculas, sem espaços, só alfanumérico/_/-  (deve bater com device_id do ESP32)
+  const id = topic.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
   if (rooms.find(r => r.id === id)) { toast('Ambiente já existe!', 'error'); return; }
-  rooms.push({ id, label, topic, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null });
+  // topic e id são iguais e normalizados — evita mismatch com tópico MQTT
+  rooms.push({ id, label, topic: id, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null });
   saveRooms();
   renderRooms();
-  subscribeRoom(id, topic);
+  subscribeRoom(id);
   toast(`Ambiente "${label}" adicionado!`, 'success');
 }
 
@@ -870,7 +872,7 @@ function removeRoom(idx) {
   if (!room) return;
   clearTimeout(room._timeout);
   if (mqttClient && mqttClient.connected) {
-    mqttClient.unsubscribe(`sensors/${room.topic}/data`);
+    mqttClient.unsubscribe(`sensors/${room.id}/data`);
   }
   rooms.splice(idx, 1);
   saveRooms();
@@ -881,10 +883,11 @@ function removeRoom(idx) {
 /* ═════════════════════════════════════════
    MQTT
 ═════════════════════════════════════════ */
-function subscribeRoom(roomId, topic) {
+function subscribeRoom(roomId) {
   if (!mqttClient || !mqttClient.connected) return;
-  mqttClient.subscribe(`sensors/${topic}/data`, err => {
-    if (!err) console.log(`[MQTT] Subscribed: sensors/${topic}/data`);
+  // roomId === device_id do ESP32 === segmento do tópico MQTT
+  mqttClient.subscribe(`sensors/${roomId}/data`, err => {
+    if (!err) console.log(`[MQTT] Subscribed: sensors/${roomId}/data`);
   });
 }
 
@@ -908,7 +911,7 @@ function connectMQTT() {
     clientId: 'dash_' + Math.random().toString(36).substr(2, 8),
     username: user,
     password: pass,
-    clean: false,
+    clean: true,
     reconnectPeriod: 5000,
     connectTimeout: 10000,
   };
@@ -922,7 +925,7 @@ function connectMQTT() {
     setBadge('connected');
     toast('MQTT conectado!', 'success');
     // Resubscreve todos os ambientes
-    rooms.forEach(r => subscribeRoom(r.id, r.topic));
+    rooms.forEach(r => subscribeRoom(r.id));
     // Fecha config
     hideMqttCfg();
   });
@@ -939,12 +942,13 @@ function connectMQTT() {
   mqttClient.on('message', (topic, message) => {
     try {
       const data = JSON.parse(message.toString());
-      // topic: sensors/<id>/data
+      // topic: sensors/<device_id>/data  →  parts[1] === device_id
       const parts = topic.split('/');
-      const topicId = parts[1];
-      // mapeia para roomId
-      const room = rooms.find(r => r.topic === topicId);
+      const deviceId = parts[1];
+      // room.id é sempre igual ao device_id normalizado
+      const room = rooms.find(r => r.id === deviceId);
       if (room) updateCardData(room.id, data);
+      else console.warn('[MQTT] Mensagem de ambiente desconhecido:', deviceId);
     } catch(e) {
       console.warn('[MQTT] Parse error', e);
     }
@@ -1038,7 +1042,7 @@ document.getElementById('iconPicker').addEventListener('click', e => {
 
 document.getElementById('btnSaveRoom').addEventListener('click', () => {
   const label = document.getElementById('mLabel').value.trim();
-  const topic = document.getElementById('mTopic').value.trim().replace(/[^a-z0-9_-]/gi, '_');
+  const topic = document.getElementById('mTopic').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
   if (!label || !topic) { toast('Preencha todos os campos!', 'error'); return; }
   addRoom(label, topic, selectedIcon);
   closeModal();
@@ -1077,4 +1081,3 @@ if (mqttCfg.broker) {
 </script>
 </body>
 </html>
-
