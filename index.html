@@ -161,8 +161,9 @@ header {
 /* ─── GRID DE AMBIENTES ─── */
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 320px), 360px));
+  grid-template-columns: repeat(auto-fill, 320px);
   gap: 20px;
+  justify-content: start;
 }
 
 /* ─── CARD DE AMBIENTE ─── */
@@ -1076,18 +1077,18 @@ function formatTime(ts) {
    RENDER
 ═════════════════════════════════════════ */
 function calcCardSize() {
-  const n    = Math.max(rooms.length, 1);
-  const grid = document.getElementById('roomsGrid');
-  const W    = grid.clientWidth;
+  const n       = Math.max(rooms.length, 1);
+  const grid    = document.getElementById('roomsGrid');
+  const W       = grid.clientWidth;
   const compact = n > 10;
 
-  // Acima de 10 cards: modo compacto, máx 8 colunas
   const maxCols = compact ? 8 : 6;
   const cols    = Math.min(n, maxCols);
   const gap     = 20 * (cols - 1);
   const size    = Math.max(compact ? 160 : 200, Math.floor((W - gap) / cols));
 
-  grid.style.setProperty('--card-min', size + 'px');
+  // Seta colunas fixas — sem 1fr para não esticar
+  grid.style.gridTemplateColumns = `repeat(auto-fill, ${size}px)`;
   grid.classList.toggle('compact', compact);
 }
 
