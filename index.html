@@ -161,7 +161,7 @@ header {
 /* ─── GRID DE AMBIENTES ─── */
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 320px), 1fr));
   gap: 20px;
 }
 
@@ -239,7 +239,7 @@ header {
 .room-label {
   font-family: 'Syne', sans-serif;
   font-weight: 700;
-  font-size: .9rem;
+  font-size: clamp(.72rem, .9vw, .9rem);
   color: var(--text-1);
   white-space: nowrap;
   overflow: hidden;
@@ -310,7 +310,7 @@ header {
 .metric-value {
   font-family: 'DM Mono', monospace;
   font-weight: 500;
-  font-size: 2.4rem;
+  font-size: clamp(1.3rem, 2.2vw, 2.4rem);
   line-height: 1;
   color: var(--text-1);
   transition: all .4s;
@@ -601,6 +601,23 @@ header {
   .header-actions { width: 100%; justify-content: flex-end; }
   .metrics { grid-template-columns: 1fr 1fr; }
 }
+
+/* ─── MODO COMPACTO (10+ cards) ─── */
+.rooms-grid.compact .bar-wrap      { display: none; }
+.rooms-grid.compact .room-topic    { display: none; }
+.rooms-grid.compact .metric-unit   { display: none; }
+.rooms-grid.compact .card-footer   { padding-top: 10px; }
+.rooms-grid.compact .room-card     { padding: 14px; }
+.rooms-grid.compact .card-head     { margin-bottom: 12px; }
+.rooms-grid.compact .metrics       { gap: 8px; margin-bottom: 12px; }
+.rooms-grid.compact .metric        { padding: 8px 10px; }
+.rooms-grid.compact .metric-value  { font-size: clamp(1.1rem, 1.8vw, 1.8rem); }
+.rooms-grid.compact .metric-label  { font-size: .55rem; }
+.rooms-grid.compact .room-label    { font-size: clamp(.65rem, .85vw, .82rem); }
+.rooms-grid.compact .last-update   { font-size: .6rem; }
+.rooms-grid.compact .icon-btn      { width: 24px; height: 24px; font-size: .7rem; }
+.rooms-grid.compact .room-icon     { width: 32px; height: 32px; font-size: .9rem; }
+.rooms-grid.compact .status-chip   { font-size: .62rem; padding: 3px 8px; }
 
 /* ─── SHIMMER (loading) ─── */
 @keyframes shimmer {
@@ -1058,15 +1075,31 @@ function formatTime(ts) {
 /* ═════════════════════════════════════════
    RENDER
 ═════════════════════════════════════════ */
+function calcCardSize() {
+  const n    = Math.max(rooms.length, 1);
+  const grid = document.getElementById('roomsGrid');
+  const W    = grid.clientWidth;
+  const compact = n > 10;
+
+  // Acima de 10 cards: modo compacto, máx 8 colunas
+  const maxCols = compact ? 8 : 6;
+  const cols    = Math.min(n, maxCols);
+  const gap     = 20 * (cols - 1);
+  const size    = Math.max(compact ? 160 : 200, Math.floor((W - gap) / cols));
+
+  grid.style.setProperty('--card-min', size + 'px');
+  grid.classList.toggle('compact', compact);
+}
+
 function renderRooms() {
   const grid = document.getElementById('roomsGrid');
-  // Remove cards antigos (mantém o placeholder)
   grid.querySelectorAll('.room-card').forEach(c => c.remove());
 
   rooms.forEach((room, idx) => {
     const card = buildCard(room, idx);
     grid.insertBefore(card, document.getElementById('addCardPlaceholder'));
   });
+  calcCardSize();
 }
 
 function buildCard(room, idx) {
@@ -1263,11 +1296,20 @@ function connectMQTT() {
   }
 
   const url = `wss://${broker}:${port}/mqtt`;
+
+  // clientId fixo por navegador — garante que o broker entregue mensagens
+  // retidas (retain) automaticamente ao reconectar após reload ou queda
+  let clientId = localStorage.getItem('amb_client_id');
+  if (!clientId) {
+    clientId = 'dash_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('amb_client_id', clientId);
+  }
+
   const opts = {
-    clientId: 'dash_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5),
+    clientId,
     username: user,
     password: pass,
-    clean: true,
+    clean: false,          // mantém sessão → broker re-entrega retains ao reconectar
     reconnectPeriod: 5000,
     connectTimeout: 10000,
   };
@@ -1461,6 +1503,7 @@ document.getElementById('btnSaveRoom').addEventListener('click', () => {
 window.removeRoom = removeRoom;
 
 renderRooms();
+window.addEventListener('resize', () => { calcCardSize(); });
 
 // Restaura timeouts de offline para ambientes já carregados
 rooms.forEach(room => {
