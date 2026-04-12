@@ -906,22 +906,28 @@ header {
       <div class="cfg-grid">
         <div class="form-group">
           <label>Broker (host)</label>
-          <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud" value="cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud">
+          <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud">
         </div>
         <div class="form-group">
           <label>Porta</label>
           <input id="cfgPort" type="number" value="8884" placeholder="8884">
         </div>
         <div class="form-group">
-          <label>Usuário</label>
-          <input id="cfgUser" type="text" placeholder="seu-usuario" value="monitortemp">
+          <label>Usuário MQTT</label>
+          <input id="cfgUser" type="text" placeholder="seu-usuario" autocomplete="off">
         </div>
         <div class="form-group">
-          <label>Senha</label>
-          <input id="cfgPass" type="password" placeholder="••••••••" value="061084Cc@">
+          <label>Senha MQTT</label>
+          <input id="cfgPass" type="password" placeholder="••••••••" autocomplete="off">
         </div>
       </div>
-      <button class="btn-primary" id="btnConnect" style="width:100%;margin-top:4px">Conectar ao MQTT</button>
+      <div id="mqttLockMsg" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:.78rem;color:var(--red);text-align:center">
+        🔒 Campos bloqueados — <button onclick="unlockMqttCfg()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.78rem;text-decoration:underline">clique aqui para editar</button>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:4px">
+        <button class="btn-cancel" id="btnSaveMqttCreds" style="flex:1;padding:10px;font-size:.88rem">💾 Salvar</button>
+        <button class="btn-primary" id="btnConnect" style="flex:2">⚡ Conectar</button>
+      </div>
     </div>
   </div>
 
@@ -1195,10 +1201,11 @@ function subscribeRoom(roomId) {
 }
 
 function connectMQTT() {
-  const broker = document.getElementById('cfgBroker').value.trim() || "cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud";
+  const broker = document.getElementById('cfgBroker').value.trim();
   const port   = parseInt(document.getElementById('cfgPort').value) || 8884;
-  const user   = document.getElementById('cfgUser').value.trim() || "monitortemp";
-  const pass   = document.getElementById('cfgPass').value || "061084Cc@";
+  const user   = document.getElementById('cfgUser').value.trim();
+  const pass   = document.getElementById('cfgPass').value;
+  if (!broker || !user || !pass) { toast('Preencha broker, usuário e senha antes de conectar.', 'error'); return; }
 
   mqttCfg = { broker, port, user, pass };
   saveMqttCfg();
@@ -1293,12 +1300,16 @@ function showMqttCfg() {
   sec.style.display = 'block';
   body.classList.add('show');
   document.getElementById('cfgChevron').style.transform = 'rotate(180deg)';
-  // Preenche com salvo
+  // Preenche com salvo (sem expor a senha em texto — mostramos placeholder)
   if (mqttCfg.broker) {
     document.getElementById('cfgBroker').value = mqttCfg.broker;
     document.getElementById('cfgPort').value   = mqttCfg.port || 8884;
     document.getElementById('cfgUser').value   = mqttCfg.user || '';
     document.getElementById('cfgPass').value   = mqttCfg.pass || '';
+    // Trava os campos se já há configuração salva
+    lockMqttFields(true);
+  } else {
+    lockMqttFields(false);
   }
   sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1325,6 +1336,25 @@ document.getElementById('mqttCfgHead').addEventListener('click', () => {
 });
 
 document.getElementById('btnConnect').addEventListener('click', connectMQTT);
+
+document.getElementById('btnSaveMqttCreds').addEventListener('click', function() {
+  requireCredentials(
+    '💾 Salvar Credenciais MQTT',
+    'Confirme suas credenciais do app para salvar as configurações MQTT.',
+    false,
+    function() {
+      const broker = document.getElementById('cfgBroker').value.trim();
+      const port   = parseInt(document.getElementById('cfgPort').value) || 8884;
+      const user   = document.getElementById('cfgUser').value.trim();
+      const pass   = document.getElementById('cfgPass').value;
+      if (!broker || !user || !pass) { toast('Preencha todos os campos MQTT!', 'error'); return; }
+      mqttCfg = { broker, port, user, pass };
+      saveMqttCfg();
+      lockMqttFields(true);
+      toast('Credenciais MQTT salvas com segurança!', 'success');
+    }
+  );
+});
 
 /* ═════════════════════════════════════════
    MODAL
@@ -1401,13 +1431,36 @@ rooms.forEach(room => {
   }
 });
 
-// Auto-conecta após login (controlado pelo sistema de auth)
+// Auto-conecta após login usando credenciais salvas no localStorage
 function autoConnectMQTT() {
-  document.getElementById('cfgBroker').value = "cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud";
-  document.getElementById('cfgPort').value   = 8884;
-  document.getElementById('cfgUser').value   = "monitortemp";
-  document.getElementById('cfgPass').value   = "061084Cc@";
+  const saved = JSON.parse(localStorage.getItem('amb_mqtt') || '{}');
+  if (saved.broker) {
+    document.getElementById('cfgBroker').value = saved.broker;
+    document.getElementById('cfgPort').value   = saved.port || 8884;
+    document.getElementById('cfgUser').value   = saved.user || '';
+    document.getElementById('cfgPass').value   = saved.pass || '';
+  }
   if (!mqttClient) connectMQTT();
+}
+
+// Lock/Unlock do painel MQTT — exige credenciais do app para editar
+function lockMqttFields(locked) {
+  const ids = ['cfgBroker', 'cfgPort', 'cfgUser', 'cfgPass'];
+  ids.forEach(id => { document.getElementById(id).disabled = locked; });
+  document.getElementById('btnSaveMqttCreds').disabled = locked;
+  document.getElementById('mqttLockMsg').style.display = locked ? 'block' : 'none';
+}
+
+function unlockMqttCfg() {
+  requireCredentials(
+    '🔓 Editar Configuração MQTT',
+    'Confirme suas credenciais do app para liberar a edição.',
+    false,
+    function() {
+      lockMqttFields(false);
+      toast('Campos MQTT desbloqueados para edição.', 'info');
+    }
+  );
 }
 setTimeout(() => {
   if (typeof isLoggedIn === 'function' && isLoggedIn()) autoConnectMQTT();
