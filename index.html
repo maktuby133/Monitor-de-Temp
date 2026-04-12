@@ -722,6 +722,122 @@ header {
   transition: all .2s;
 }
 .btn-logout:hover { background: rgba(248,113,113,.15); border-color: rgba(248,113,113,.5); }
+
+/* ═══════════════════════════════════════════
+   MODAL DE CONFIRMAÇÃO COM SENHA
+═══════════════════════════════════════════ */
+.confirm-overlay {
+  position: fixed; inset: 0;
+  background: rgba(7,13,26,.88);
+  backdrop-filter: blur(8px);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .25s;
+}
+.confirm-overlay.open { opacity: 1; pointer-events: all; }
+
+.confirm-box {
+  background: var(--surface);
+  border: 1px solid var(--border-h);
+  border-radius: 18px;
+  padding: 28px;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 32px 64px rgba(0,0,0,.7);
+  transform: scale(.95) translateY(12px);
+  transition: transform .25s;
+}
+.confirm-overlay.open .confirm-box { transform: scale(1) translateY(0); }
+
+.confirm-box h3 {
+  font-family: 'Syne', sans-serif;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-1);
+  margin-bottom: 6px;
+}
+.confirm-box p {
+  font-size: .82rem;
+  color: var(--text-2);
+  margin-bottom: 18px;
+}
+.confirm-field { margin-bottom: 14px; }
+.confirm-field label {
+  display: block;
+  font-size: .68rem;
+  font-weight: 600;
+  color: var(--text-3);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 6px;
+}
+.confirm-field input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 9px 13px;
+  color: var(--text-1);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .88rem;
+  outline: none;
+  transition: border .2s, box-shadow .2s;
+}
+.confirm-field input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+.confirm-error {
+  background: rgba(248,113,113,.08);
+  border: 1px solid rgba(248,113,113,.3);
+  border-radius: 8px;
+  color: var(--red);
+  font-size: .78rem;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  display: none;
+  text-align: center;
+}
+.confirm-error.show { display: block; }
+.confirm-actions { display: flex; gap: 10px; margin-top: 4px; }
+.confirm-cancel {
+  flex: 1;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-2);
+  font-family: 'DM Sans', sans-serif;
+  font-size: .88rem;
+  cursor: pointer;
+  transition: all .2s;
+}
+.confirm-cancel:hover { border-color: var(--border-h); color: var(--text-1); }
+.confirm-ok {
+  flex: 2;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: var(--accent-dim);
+  color: var(--accent);
+  font-family: 'Syne', sans-serif;
+  font-size: .9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+}
+.confirm-ok:hover { background: rgba(56,189,248,.3); }
+.confirm-ok.danger {
+  border-color: rgba(248,113,113,.5);
+  background: rgba(248,113,113,.08);
+  color: var(--red);
+}
+.confirm-ok.danger:hover { background: rgba(248,113,113,.18); }
 </style>
 </head>
 <body>
@@ -855,6 +971,28 @@ header {
     <div class="modal-actions">
       <button class="btn-cancel" id="btnCancelModal">Cancelar</button>
       <button class="btn-primary" id="btnSaveRoom">✓ Adicionar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- MODAL DE CONFIRMAÇÃO COM SENHA -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-box">
+    <h3 id="confirmTitle">Confirmar ação</h3>
+    <p id="confirmDesc">Digite suas credenciais para continuar.</p>
+    <div class="confirm-error" id="confirmError"></div>
+    <div class="confirm-field">
+      <label>Usuário</label>
+      <input id="confirmUser" type="text" placeholder="Seu usuário" autocomplete="username">
+    </div>
+    <div class="confirm-field">
+      <label>Senha</label>
+      <input id="confirmPass" type="password" placeholder="Sua senha" autocomplete="current-password">
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" id="confirmCancel">Cancelar</button>
+      <button class="confirm-ok" id="confirmOk">Confirmar</button>
     </div>
   </div>
 </div>
@@ -1024,14 +1162,21 @@ function addRoom(label, topic, icon) {
 function removeRoom(idx) {
   const room = rooms[idx];
   if (!room) return;
-  clearTimeout(room._timeout);
-  if (mqttClient && mqttClient.connected) {
-    mqttClient.unsubscribe(`sensors/${room.id}/data`);
-  }
-  rooms.splice(idx, 1);
-  saveRooms();
-  renderRooms();
-  toast('Ambiente removido.', 'info');
+  requireCredentials(
+    '🗑️ Remover Ambiente',
+    `Confirme suas credenciais para remover "${room.label}".`,
+    true,
+    function() {
+      clearTimeout(room._timeout);
+      if (mqttClient && mqttClient.connected) {
+        mqttClient.unsubscribe(`sensors/${room.id}/data`);
+      }
+      rooms.splice(idx, 1);
+      saveRooms();
+      renderRooms();
+      toast('Ambiente removido.', 'info');
+    }
+  );
 }
 
 /* ═════════════════════════════════════════
@@ -1195,8 +1340,22 @@ function closeModal() {
   document.getElementById('topicPreview').textContent = '...';
 }
 
-document.getElementById('btnAddRoom').addEventListener('click', openModal);
-document.getElementById('addCardPlaceholder').addEventListener('click', openModal);
+document.getElementById('btnAddRoom').addEventListener('click', function() {
+  requireCredentials(
+    '🔒 Adicionar Ambiente',
+    'Confirme suas credenciais para adicionar um novo ambiente.',
+    false,
+    openModal
+  );
+});
+document.getElementById('addCardPlaceholder').addEventListener('click', function() {
+  requireCredentials(
+    '🔒 Adicionar Ambiente',
+    'Confirme suas credenciais para adicionar um novo ambiente.',
+    false,
+    openModal
+  );
+});
 document.getElementById('btnCancelModal').addEventListener('click', closeModal);
 document.getElementById('addModal').addEventListener('click', e => { if (e.target === document.getElementById('addModal')) closeModal(); });
 
@@ -1413,6 +1572,95 @@ setTimeout(() => {
   // Expõe logout globalmente
   window.authLogout = logout;
   window.isLoggedIn = isLoggedIn;
+
+})();
+
+
+/* ═════════════════════════════════════════
+   SISTEMA DE CONFIRMAÇÃO COM SENHA
+═════════════════════════════════════════ */
+(function() {
+  let _pendingCallback = null;
+
+  function hashStr(str) {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) + str.charCodeAt(i);
+      hash = hash & hash;
+    }
+    return hash.toString(36);
+  }
+
+  function getCredentials() {
+    const raw = localStorage.getItem('amb_auth');
+    return raw ? JSON.parse(raw) : null;
+  }
+
+  function showConfirmError(msg) {
+    const el = document.getElementById('confirmError');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  function hideConfirmError() {
+    document.getElementById('confirmError').classList.remove('show');
+  }
+
+  // Abre modal de confirmação e executa callback se credenciais corretas
+  window.requireCredentials = function(title, desc, isDanger, callback) {
+    _pendingCallback = callback;
+    document.getElementById('confirmTitle').textContent = title;
+    document.getElementById('confirmDesc').textContent  = desc;
+    document.getElementById('confirmUser').value = '';
+    document.getElementById('confirmPass').value = '';
+    hideConfirmError();
+
+    const okBtn = document.getElementById('confirmOk');
+    okBtn.className = 'confirm-ok' + (isDanger ? ' danger' : '');
+    okBtn.textContent = isDanger ? '⚠️ Confirmar' : '✓ Confirmar';
+
+    document.getElementById('confirmOverlay').classList.add('open');
+    setTimeout(() => document.getElementById('confirmUser').focus(), 100);
+  };
+
+  function closeConfirm() {
+    document.getElementById('confirmOverlay').classList.remove('open');
+    _pendingCallback = null;
+  }
+
+  document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
+  document.getElementById('confirmOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeConfirm();
+  });
+
+  document.getElementById('confirmOk').addEventListener('click', function() {
+    hideConfirmError();
+    const user = document.getElementById('confirmUser').value.trim();
+    const pass = document.getElementById('confirmPass').value;
+
+    if (!user || !pass) { showConfirmError('Preencha usuário e senha.'); return; }
+
+    const creds = getCredentials();
+    if (!creds) { showConfirmError('Nenhuma conta cadastrada.'); return; }
+
+    const hash = hashStr(user.toLowerCase() + pass);
+    if (user.toLowerCase() !== creds.user || hash !== creds.hash) {
+      showConfirmError('Usuário ou senha incorretos.');
+      document.getElementById('confirmPass').value = '';
+      document.getElementById('confirmPass').focus();
+      return;
+    }
+
+    closeConfirm();
+    if (_pendingCallback) _pendingCallback();
+  });
+
+  // Enter para confirmar
+  ['confirmUser','confirmPass'].forEach(id => {
+    document.getElementById(id).addEventListener('keydown', function(e) {
+      if (e.key === 'Enter') document.getElementById('confirmOk').click();
+    });
+  });
 
 })();
 
