@@ -884,10 +884,14 @@ function removeRoom(idx) {
    MQTT
 ═════════════════════════════════════════ */
 function subscribeRoom(roomId) {
-  if (!mqttClient || !mqttClient.connected) return;
-  // roomId === device_id do ESP32 === segmento do tópico MQTT
-  mqttClient.subscribe(`sensors/${roomId}/data`, err => {
-    if (!err) console.log(`[MQTT] Subscribed: sensors/${roomId}/data`);
+  if (!mqttClient || !mqttClient.connected) {
+    console.warn(`[MQTT] Não conectado — ambiente "${roomId}" será subscrito ao conectar.`);
+    return;
+  }
+  const topic = `sensors/${roomId}/data`;
+  mqttClient.subscribe(topic, { qos: 1 }, (err) => {
+    if (!err) console.log(`[MQTT] ✅ Subscrito: ${topic}`);
+    else      console.error(`[MQTT] ❌ Erro ao subscrever ${topic}:`, err);
   });
 }
 
@@ -924,9 +928,17 @@ function connectMQTT() {
   mqttClient.on('connect', () => {
     setBadge('connected');
     toast('MQTT conectado!', 'success');
-    // Resubscreve todos os ambientes
-    rooms.forEach(r => subscribeRoom(r.id));
-    // Fecha config
+    // Resubscreve todos os ambientes cadastrados
+    if (rooms.length === 0) {
+      console.warn('[MQTT] Nenhum ambiente cadastrado para subscrever.');
+    }
+    rooms.forEach(r => {
+      const topic = `sensors/${r.id}/data`;
+      mqttClient.subscribe(topic, { qos: 1 }, (err) => {
+        if (!err) console.log(`[MQTT] ✅ Subscrito: ${topic}`);
+        else      console.error(`[MQTT] ❌ Erro ao subscrever ${topic}:`, err);
+      });
+    });
     hideMqttCfg();
   });
 
@@ -940,15 +952,21 @@ function connectMQTT() {
   });
 
   mqttClient.on('message', (topic, message) => {
+    console.log(`[MQTT] 📨 Mensagem recebida → tópico: ${topic}`);
     try {
       const data = JSON.parse(message.toString());
+      console.log('[MQTT] Payload:', data);
       // topic: sensors/<device_id>/data  →  parts[1] === device_id
       const parts = topic.split('/');
       const deviceId = parts[1];
       // room.id é sempre igual ao device_id normalizado
       const room = rooms.find(r => r.id === deviceId);
-      if (room) updateCardData(room.id, data);
-      else console.warn('[MQTT] Mensagem de ambiente desconhecido:', deviceId);
+      if (room) {
+        console.log(`[MQTT] ✅ Atualizando card: ${deviceId}`);
+        updateCardData(room.id, data);
+      } else {
+        console.warn(`[MQTT] ❌ Nenhum ambiente com id="${deviceId}". Ambientes cadastrados:`, rooms.map(r => r.id));
+      }
     } catch(e) {
       console.warn('[MQTT] Parse error', e);
     }
