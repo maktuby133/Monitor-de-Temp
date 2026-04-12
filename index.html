@@ -324,6 +324,23 @@ header {
   margin-top: 2px;
 }
 
+/* ─── Badge de offset (trimpot) ─── */
+.offset-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: 'DM Mono', monospace;
+  font-size: .6rem;
+  margin-top: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-weight: 500;
+}
+.offset-badge.pos { background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.2); color: var(--green); }
+.offset-badge.neg { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.2); color: var(--red); }
+.offset-badge.zero { background: var(--surface-2); border-color: var(--border); color: var(--text-3); }
+
 /* ─── BARRA DE PROGRESSO ─── */
 .bar-wrap {
   margin-top: 10px;
@@ -1083,6 +1100,7 @@ function buildCard(room, idx) {
         <div class="metric-label">🌡 Temperatura</div>
         <div class="metric-value" id="temp-${room.id}">${tempVal}</div>
         <div class="metric-unit">graus Celsius</div>
+        <div id="offset-temp-${room.id}" class="offset-badge zero" title="Offset aplicado pelo trimpot">⚙ —</div>
         <div class="bar-wrap">
           <div class="bar-label"><span>0°C</span><span>50°C</span></div>
           <div class="bar-track"><div class="bar-fill" id="bar-temp-${room.id}" style="width:${tempPct}%"></div></div>
@@ -1092,6 +1110,7 @@ function buildCard(room, idx) {
         <div class="metric-label">💧 Humidade</div>
         <div class="metric-value" id="hum-${room.id}">${humVal}</div>
         <div class="metric-unit">por cento</div>
+        <div id="offset-hum-${room.id}" class="offset-badge zero" title="Offset aplicado pelo trimpot">⚙ —</div>
         <div class="bar-wrap">
           <div class="bar-label"><span>0%</span><span>100%</span></div>
           <div class="bar-track"><div class="bar-fill" id="bar-hum-${room.id}" style="width:${humPct}%"></div></div>
@@ -1108,14 +1127,27 @@ function buildCard(room, idx) {
   return el;
 }
 
+function updateOffsetBadge(elId, offset) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (offset == null) { el.className = 'offset-badge zero'; el.textContent = '⚙ —'; return; }
+  const sign = offset > 0 ? '+' : '';
+  const cls  = offset > 0 ? 'pos' : offset < 0 ? 'neg' : 'zero';
+  el.className = `offset-badge ${cls}`;
+  el.title = `Offset do trimpot: ${sign}${offset.toFixed(1)}`;
+  el.textContent = `⚙ ${sign}${offset.toFixed(1)}`;
+}
+
 function updateCardData(roomId, data) {
   const room = rooms.find(r => r.id === roomId);
   if (!room) return;
 
-  room.temperature = data.temperature;
-  room.humidity    = data.humidity;
-  room.lastUpdate  = Date.now();
-  room.status      = 'online';
+  room.temperature  = data.temperature;
+  room.humidity     = data.humidity;
+  room.offset_temp  = data.offset_temp  ?? null;
+  room.offset_hum   = data.offset_hum   ?? null;
+  room.lastUpdate   = Date.now();
+  room.status       = 'online';
   clearTimeout(room._timeout);
   room._timeout = setTimeout(() => setOffline(roomId), TIMEOUT_MS);
   saveRooms();
@@ -1131,6 +1163,10 @@ function updateCardData(roomId, data) {
   document.getElementById(`hum-${roomId}`).textContent  = data.humidity.toFixed(1);
   document.getElementById(`upd-${roomId}`).textContent  = formatTime(room.lastUpdate);
 
+  // Atualiza badges de offset dos trimpots
+  updateOffsetBadge(`offset-temp-${roomId}`, room.offset_temp);
+  updateOffsetBadge(`offset-hum-${roomId}`,  room.offset_hum);
+
   const tempPct = Math.min(100, (data.temperature / 50) * 100);
   const humPct  = Math.min(100, data.humidity);
   document.getElementById(`bar-temp-${roomId}`).style.width = tempPct + '%';
@@ -1140,7 +1176,9 @@ function updateCardData(roomId, data) {
 function setOffline(roomId) {
   const room = rooms.find(r => r.id === roomId);
   if (!room) return;
-  room.status = 'offline';
+  room.status      = 'offline';
+  room.temperature = null;
+  room.humidity    = null;
   saveRooms();
   const card = document.getElementById(`card-${roomId}`);
   if (!card) return;
@@ -1148,6 +1186,12 @@ function setOffline(roomId) {
   const chip = card.querySelector('.status-chip');
   chip.className = 'status-chip offline';
   chip.innerHTML = '<div class="sdot"></div> Offline';
+  // Zera os valores exibidos
+  document.getElementById(`temp-${roomId}`).textContent = '–';
+  document.getElementById(`hum-${roomId}`).textContent  = '–';
+  document.getElementById(`bar-temp-${roomId}`).style.width = '0%';
+  document.getElementById(`bar-hum-${roomId}`).style.width  = '0%';
+  document.getElementById(`upd-${roomId}`).textContent = '–';
 }
 
 /* ═════════════════════════════════════════
