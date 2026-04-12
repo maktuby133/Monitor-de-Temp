@@ -239,7 +239,7 @@ header {
 .room-label {
   font-family: 'Syne', sans-serif;
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: .9rem;
   color: var(--text-1);
   white-space: nowrap;
   overflow: hidden;
@@ -283,7 +283,7 @@ header {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
-  padding: 16px;
+  padding: 12px 14px;
   position: relative;
   overflow: hidden;
   transition: border-color .2s;
@@ -293,34 +293,35 @@ header {
 .metric.hum  { border-left: 2px solid var(--cool); }
 
 .metric-label {
-  font-size: .68rem;
+  font-size: .6rem;
   color: var(--text-3);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: .07em;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
 }
 
 .metric.temp .metric-label { color: var(--warm); }
 .metric.hum  .metric-label { color: var(--cool); }
 
 .metric-value {
-  font-family: 'Syne', sans-serif;
-  font-weight: 800;
-  font-size: 2rem;
+  font-family: 'DM Mono', monospace;
+  font-weight: 500;
+  font-size: 2.4rem;
   line-height: 1;
   color: var(--text-1);
   transition: all .4s;
+  letter-spacing: -.02em;
 }
 
 .metric-unit {
   font-family: 'DM Mono', monospace;
-  font-size: .8rem;
+  font-size: .65rem;
   color: var(--text-3);
-  margin-top: 3px;
+  margin-top: 2px;
 }
 
 /* ─── BARRA DE PROGRESSO ─── */
@@ -330,9 +331,9 @@ header {
 .bar-label {
   display: flex;
   justify-content: space-between;
-  font-size: .68rem;
+  font-size: .58rem;
   color: var(--text-3);
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 .bar-track {
   height: 4px;
@@ -606,7 +607,7 @@ header {
     <div class="brand">
       <div class="brand-icon">🌡️</div>
       <div>
-        <h1>AmbientMonitor</h1>
+        <h1>AmbientWatch</h1>
         <p>Monitoramento de temperatura e humidade</p>
       </div>
     </div>
@@ -636,7 +637,7 @@ header {
       <div class="cfg-grid">
         <div class="form-group">
           <label>Broker (host)</label>
-          <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud">
+          <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud" value="cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud">
         </div>
         <div class="form-group">
           <label>Porta</label>
@@ -644,11 +645,11 @@ header {
         </div>
         <div class="form-group">
           <label>Usuário</label>
-          <input id="cfgUser" type="text" placeholder="seu-usuario">
+          <input id="cfgUser" type="text" placeholder="seu-usuario" value="monitortemp">
         </div>
         <div class="form-group">
           <label>Senha</label>
-          <input id="cfgPass" type="password" placeholder="••••••••">
+          <input id="cfgPass" type="password" placeholder="••••••••" value="061084Cc@">
         </div>
       </div>
       <button class="btn-primary" id="btnConnect" style="width:100%;margin-top:4px">Conectar ao MQTT</button>
@@ -896,12 +897,10 @@ function subscribeRoom(roomId) {
 }
 
 function connectMQTT() {
-  const broker = document.getElementById('cfgBroker').value.trim();
+  const broker = document.getElementById('cfgBroker').value.trim() || "cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud";
   const port   = parseInt(document.getElementById('cfgPort').value) || 8884;
-  const user   = document.getElementById('cfgUser').value.trim();
-  const pass   = document.getElementById('cfgPass').value;
-
-  if (!broker) { toast('Informe o broker!', 'error'); return; }
+  const user   = document.getElementById('cfgUser').value.trim() || "monitortemp";
+  const pass   = document.getElementById('cfgPass').value || "061084Cc@";
 
   mqttCfg = { broker, port, user, pass };
   saveMqttCfg();
@@ -1090,16 +1089,14 @@ rooms.forEach(room => {
   }
 });
 
-// Auto-reconecta se tem config salva (apenas uma vez, ao carregar)
-if (mqttCfg.broker) {
-  setTimeout(() => {
-    document.getElementById('cfgBroker').value = mqttCfg.broker;
-    document.getElementById('cfgPort').value   = mqttCfg.port || 8884;
-    document.getElementById('cfgUser').value   = mqttCfg.user || '';
-    document.getElementById('cfgPass').value   = mqttCfg.pass || '';
-    if (!mqttClient) connectMQTT();  // só conecta se ainda não há cliente
-  }, 800);
-}
+// Auto-conecta sempre ao carregar com credenciais fixas
+setTimeout(() => {
+  document.getElementById('cfgBroker').value = "cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud";
+  document.getElementById('cfgPort').value   = 8884;
+  document.getElementById('cfgUser').value   = "monitortemp";
+  document.getElementById('cfgPass').value   = "061084Cc@";
+  if (!mqttClient) connectMQTT();
+}, 800);
 </script>
 </body>
 </html>
