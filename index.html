@@ -161,8 +161,8 @@ header {
 /* ─── GRID DE AMBIENTES ─── */
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(var(--grid-cols, 3), 1fr);
-  gap: clamp(8px, 1.2vw, 20px);
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 20px;
 }
 
 /* ─── CARD DE AMBIENTE ─── */
@@ -170,13 +170,12 @@ header {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: clamp(12px, 1.5vw, 24px);
+  padding: 24px;
   position: relative;
   overflow: hidden;
   transition: border-color .3s, box-shadow .3s, transform .2s;
   box-shadow: var(--shadow-card);
   animation: cardIn .4s ease both;
-  min-width: 180px;
 }
 
 @keyframes cardIn {
@@ -240,7 +239,7 @@ header {
 .room-label {
   font-family: 'Syne', sans-serif;
   font-weight: 700;
-  font-size: clamp(.7rem, 1vw, .9rem);
+  font-size: .9rem;
   color: var(--text-1);
   white-space: nowrap;
   overflow: hidden;
@@ -311,7 +310,7 @@ header {
 .metric-value {
   font-family: 'DM Mono', monospace;
   font-weight: 500;
-  font-size: clamp(1.2rem, 2.5vw, 2.4rem);
+  font-size: 2.4rem;
   line-height: 1;
   color: var(--text-1);
   transition: all .4s;
@@ -1059,24 +1058,6 @@ function formatTime(ts) {
 /* ═════════════════════════════════════════
    RENDER
 ═════════════════════════════════════════ */
-function calcGridCols() {
-  const n       = rooms.length;
-  const grid    = document.getElementById('roomsGrid');
-  const W       = grid.clientWidth;
-  const MIN_W   = 180; // px mínimo por card antes de usar scroll
-  if (n === 0) { grid.style.setProperty('--grid-cols', 3); return; }
-  // Tenta encaixar tudo: começa pelo número de cards e vai reduzindo colunas
-  // até caber ou chegar no mínimo legível
-  let cols = n;
-  while (cols > 1) {
-    const gap      = Math.min(20, W * 0.012);
-    const cardW    = (W - gap * (cols - 1)) / cols;
-    if (cardW >= MIN_W) break;
-    cols--;
-  }
-  grid.style.setProperty('--grid-cols', cols);
-}
-
 function renderRooms() {
   const grid = document.getElementById('roomsGrid');
   // Remove cards antigos (mantém o placeholder)
@@ -1086,7 +1067,6 @@ function renderRooms() {
     const card = buildCard(room, idx);
     grid.insertBefore(card, document.getElementById('addCardPlaceholder'));
   });
-  calcGridCols();
 }
 
 function buildCard(room, idx) {
@@ -1481,7 +1461,6 @@ document.getElementById('btnSaveRoom').addEventListener('click', () => {
 window.removeRoom = removeRoom;
 
 renderRooms();
-window.addEventListener('resize', calcGridCols);
 
 // Restaura timeouts de offline para ambientes já carregados
 rooms.forEach(room => {
