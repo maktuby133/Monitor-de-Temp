@@ -907,12 +907,16 @@ function connectMQTT() {
   saveMqttCfg();
 
   if (mqttClient) {
-    try { mqttClient.end(true); } catch(e) {}
+    try {
+      mqttClient.end(true);
+      mqttClient.removeAllListeners();
+    } catch(e) {}
+    mqttClient = null;
   }
 
   const url = `wss://${broker}:${port}/mqtt`;
   const opts = {
-    clientId: 'dash_' + Math.random().toString(36).substr(2, 8),
+    clientId: 'dash_' + Date.now().toString(36) + '_' + Math.random().toString(36).substr(2, 5),
     username: user,
     password: pass,
     clean: true,
@@ -1086,14 +1090,14 @@ rooms.forEach(room => {
   }
 });
 
-// Auto-reconecta se tem config salva
+// Auto-reconecta se tem config salva (apenas uma vez, ao carregar)
 if (mqttCfg.broker) {
   setTimeout(() => {
     document.getElementById('cfgBroker').value = mqttCfg.broker;
     document.getElementById('cfgPort').value   = mqttCfg.port || 8884;
     document.getElementById('cfgUser').value   = mqttCfg.user || '';
     document.getElementById('cfgPass').value   = mqttCfg.pass || '';
-    connectMQTT();
+    if (!mqttClient) connectMQTT();  // só conecta se ainda não há cliente
   }, 800);
 }
 </script>
