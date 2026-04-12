@@ -161,9 +161,26 @@ header {
 /* ─── GRID DE AMBIENTES ─── */
 .rooms-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 320px), 1fr));
   gap: 20px;
 }
+
+/* ─── MODO COMPACTO (10+ cards) ─── */
+.rooms-grid.compact .bar-wrap     { display: none; }
+.rooms-grid.compact .room-topic   { display: none; }
+.rooms-grid.compact .metric-unit  { display: none; }
+.rooms-grid.compact .card-footer  { padding-top: 10px; }
+.rooms-grid.compact .room-card    { padding: 14px; }
+.rooms-grid.compact .card-head    { margin-bottom: 12px; }
+.rooms-grid.compact .metrics      { gap: 8px; margin-bottom: 12px; }
+.rooms-grid.compact .metric       { padding: 8px 10px; }
+.rooms-grid.compact .metric-value { font-size: clamp(1.1rem, 1.8vw, 1.8rem); }
+.rooms-grid.compact .metric-label { font-size: .55rem; }
+.rooms-grid.compact .room-label   { font-size: clamp(.65rem, .85vw, .82rem); }
+.rooms-grid.compact .last-update  { font-size: .6rem; }
+.rooms-grid.compact .icon-btn     { width: 24px; height: 24px; font-size: .7rem; }
+.rooms-grid.compact .room-icon    { width: 32px; height: 32px; font-size: .9rem; }
+.rooms-grid.compact .status-chip  { font-size: .62rem; padding: 3px 8px; }
 
 /* ─── CARD DE AMBIENTE ─── */
 .room-card {
@@ -239,7 +256,7 @@ header {
 .room-label {
   font-family: 'Syne', sans-serif;
   font-weight: 700;
-  font-size: clamp(.72rem, .9vw, .9rem);
+  font-size: .9rem;
   color: var(--text-1);
   white-space: nowrap;
   overflow: hidden;
@@ -310,7 +327,7 @@ header {
 .metric-value {
   font-family: 'DM Mono', monospace;
   font-weight: 500;
-  font-size: clamp(1.3rem, 2.2vw, 2.4rem);
+  font-size: 2.4rem;
   line-height: 1;
   color: var(--text-1);
   transition: all .4s;
@@ -323,23 +340,6 @@ header {
   color: var(--text-3);
   margin-top: 2px;
 }
-
-/* ─── Badge de offset (trimpot) ─── */
-.offset-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-family: 'DM Mono', monospace;
-  font-size: .6rem;
-  margin-top: 4px;
-  padding: 2px 7px;
-  border-radius: 999px;
-  border: 1px solid transparent;
-  font-weight: 500;
-}
-.offset-badge.pos { background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.2); color: var(--green); }
-.offset-badge.neg { background: rgba(248,113,113,.08); border-color: rgba(248,113,113,.2); color: var(--red); }
-.offset-badge.zero { background: var(--surface-2); border-color: var(--border); color: var(--text-3); }
 
 /* ─── BARRA DE PROGRESSO ─── */
 .bar-wrap {
@@ -602,23 +602,6 @@ header {
   .metrics { grid-template-columns: 1fr 1fr; }
 }
 
-/* ─── MODO COMPACTO (10+ cards) ─── */
-.rooms-grid.compact .bar-wrap      { display: none; }
-.rooms-grid.compact .room-topic    { display: none; }
-.rooms-grid.compact .metric-unit   { display: none; }
-.rooms-grid.compact .card-footer   { padding-top: 10px; }
-.rooms-grid.compact .room-card     { padding: 14px; }
-.rooms-grid.compact .card-head     { margin-bottom: 12px; }
-.rooms-grid.compact .metrics       { gap: 8px; margin-bottom: 12px; }
-.rooms-grid.compact .metric        { padding: 8px 10px; }
-.rooms-grid.compact .metric-value  { font-size: clamp(1.1rem, 1.8vw, 1.8rem); }
-.rooms-grid.compact .metric-label  { font-size: .55rem; }
-.rooms-grid.compact .room-label    { font-size: clamp(.65rem, .85vw, .82rem); }
-.rooms-grid.compact .last-update   { font-size: .6rem; }
-.rooms-grid.compact .icon-btn      { width: 24px; height: 24px; font-size: .7rem; }
-.rooms-grid.compact .room-icon     { width: 32px; height: 32px; font-size: .9rem; }
-.rooms-grid.compact .status-chip   { font-size: .62rem; padding: 3px 8px; }
-
 /* ─── SHIMMER (loading) ─── */
 @keyframes shimmer {
   0%   { background-position: -400px 0; }
@@ -801,7 +784,6 @@ header {
   margin-bottom: 18px;
 }
 .confirm-field { margin-bottom: 14px; }
-.confirm-field.hide { display: none; }
 .confirm-field label {
   display: block;
   font-size: .68rem;
@@ -941,28 +923,22 @@ header {
       <div class="cfg-grid">
         <div class="form-group">
           <label>Broker (host)</label>
-          <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud">
+          <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud" value="cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud">
         </div>
         <div class="form-group">
           <label>Porta</label>
           <input id="cfgPort" type="number" value="8884" placeholder="8884">
         </div>
         <div class="form-group">
-          <label>Usuário MQTT</label>
-          <input id="cfgUser" type="text" placeholder="seu-usuario" autocomplete="off">
+          <label>Usuário</label>
+          <input id="cfgUser" type="text" placeholder="seu-usuario" value="monitortemp">
         </div>
         <div class="form-group">
-          <label>Senha MQTT</label>
-          <input id="cfgPass" type="password" placeholder="••••••••" autocomplete="off">
+          <label>Senha</label>
+          <input id="cfgPass" type="password" placeholder="••••••••" value="061084Cc@">
         </div>
       </div>
-      <div id="mqttLockMsg" style="display:none;margin-bottom:12px;padding:10px 14px;background:rgba(248,113,113,.07);border:1px solid rgba(248,113,113,.2);border-radius:10px;font-size:.78rem;color:var(--red);text-align:center">
-        🔒 Campos bloqueados — <button onclick="unlockMqttCfg()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-size:.78rem;text-decoration:underline">clique aqui para editar</button>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:4px">
-        <button class="btn-cancel" id="btnSaveMqttCreds" style="flex:1;padding:10px;font-size:.88rem">💾 Salvar</button>
-        <button class="btn-primary" id="btnConnect" style="flex:2">⚡ Conectar</button>
-      </div>
+      <button class="btn-primary" id="btnConnect" style="width:100%;margin-top:4px">Conectar ao MQTT</button>
     </div>
   </div>
 
@@ -1023,13 +999,13 @@ header {
     <h3 id="confirmTitle">Confirmar ação</h3>
     <p id="confirmDesc">Digite suas credenciais para continuar.</p>
     <div class="confirm-error" id="confirmError"></div>
-    <div class="confirm-field hide">
+    <div class="confirm-field">
       <label>Usuário</label>
       <input id="confirmUser" type="text" placeholder="Seu usuário" autocomplete="username">
     </div>
     <div class="confirm-field">
-      <label>Senha do painel</label>
-      <input id="confirmPass" type="password" placeholder="Digite sua senha" autocomplete="current-password">
+      <label>Senha</label>
+      <input id="confirmPass" type="password" placeholder="Sua senha" autocomplete="current-password">
     </div>
     <div class="confirm-actions">
       <button class="confirm-cancel" id="confirmCancel">Cancelar</button>
@@ -1081,23 +1057,17 @@ function calcCardSize() {
   const grid    = document.getElementById('roomsGrid');
   const W       = grid.clientWidth;
   const compact = n > 10;
-
-  // Calcula quantos cards cabem por linha e o tamanho mínimo ideal
   const maxCols = compact ? 8 : 6;
   const cols    = Math.min(n, maxCols);
   const gap     = 20 * (cols - 1);
   const minSize = Math.max(compact ? 160 : 220, Math.floor((W - gap) / cols));
-
-  // Usa minmax(minSize, 1fr) — cards crescem para preencher mas nunca ficam
-  // menores que minSize, mantendo o estilo original de grade fluída
-  grid.style.gridTemplateColumns = `repeat(auto-fill, minmax(${minSize}px, 1fr))`;
+  grid.style.setProperty('--card-min', minSize + 'px');
   grid.classList.toggle('compact', compact);
 }
 
 function renderRooms() {
   const grid = document.getElementById('roomsGrid');
   grid.querySelectorAll('.room-card').forEach(c => c.remove());
-
   rooms.forEach((room, idx) => {
     const card = buildCard(room, idx);
     grid.insertBefore(card, document.getElementById('addCardPlaceholder'));
@@ -1136,7 +1106,6 @@ function buildCard(room, idx) {
         <div class="metric-label">🌡 Temperatura</div>
         <div class="metric-value" id="temp-${room.id}">${tempVal}</div>
         <div class="metric-unit">graus Celsius</div>
-        <div id="offset-temp-${room.id}" class="offset-badge zero" title="Offset aplicado pelo trimpot">⚙ —</div>
         <div class="bar-wrap">
           <div class="bar-label"><span>0°C</span><span>50°C</span></div>
           <div class="bar-track"><div class="bar-fill" id="bar-temp-${room.id}" style="width:${tempPct}%"></div></div>
@@ -1146,7 +1115,6 @@ function buildCard(room, idx) {
         <div class="metric-label">💧 Humidade</div>
         <div class="metric-value" id="hum-${room.id}">${humVal}</div>
         <div class="metric-unit">por cento</div>
-        <div id="offset-hum-${room.id}" class="offset-badge zero" title="Offset aplicado pelo trimpot">⚙ —</div>
         <div class="bar-wrap">
           <div class="bar-label"><span>0%</span><span>100%</span></div>
           <div class="bar-track"><div class="bar-fill" id="bar-hum-${room.id}" style="width:${humPct}%"></div></div>
@@ -1163,27 +1131,14 @@ function buildCard(room, idx) {
   return el;
 }
 
-function updateOffsetBadge(elId, offset) {
-  const el = document.getElementById(elId);
-  if (!el) return;
-  if (offset == null) { el.className = 'offset-badge zero'; el.textContent = '⚙ —'; return; }
-  const sign = offset > 0 ? '+' : '';
-  const cls  = offset > 0 ? 'pos' : offset < 0 ? 'neg' : 'zero';
-  el.className = `offset-badge ${cls}`;
-  el.title = `Offset do trimpot: ${sign}${offset.toFixed(1)}`;
-  el.textContent = `⚙ ${sign}${offset.toFixed(1)}`;
-}
-
 function updateCardData(roomId, data) {
   const room = rooms.find(r => r.id === roomId);
   if (!room) return;
 
-  room.temperature  = data.temperature;
-  room.humidity     = data.humidity;
-  room.offset_temp  = data.offset_temp  ?? null;
-  room.offset_hum   = data.offset_hum   ?? null;
-  room.lastUpdate   = Date.now();
-  room.status       = 'online';
+  room.temperature = data.temperature;
+  room.humidity    = data.humidity;
+  room.lastUpdate  = Date.now();
+  room.status      = 'online';
   clearTimeout(room._timeout);
   room._timeout = setTimeout(() => setOffline(roomId), TIMEOUT_MS);
   saveRooms();
@@ -1198,10 +1153,6 @@ function updateCardData(roomId, data) {
   document.getElementById(`temp-${roomId}`).textContent = data.temperature.toFixed(1);
   document.getElementById(`hum-${roomId}`).textContent  = data.humidity.toFixed(1);
   document.getElementById(`upd-${roomId}`).textContent  = formatTime(room.lastUpdate);
-
-  // Atualiza badges de offset dos trimpots
-  updateOffsetBadge(`offset-temp-${roomId}`, room.offset_temp);
-  updateOffsetBadge(`offset-hum-${roomId}`,  room.offset_hum);
 
   const tempPct = Math.min(100, (data.temperature / 50) * 100);
   const humPct  = Math.min(100, data.humidity);
@@ -1222,7 +1173,6 @@ function setOffline(roomId) {
   const chip = card.querySelector('.status-chip');
   chip.className = 'status-chip offline';
   chip.innerHTML = '<div class="sdot"></div> Offline';
-  // Zera os valores exibidos
   document.getElementById(`temp-${roomId}`).textContent = '–';
   document.getElementById(`hum-${roomId}`).textContent  = '–';
   document.getElementById(`bar-temp-${roomId}`).style.width = '0%';
@@ -1281,11 +1231,10 @@ function subscribeRoom(roomId) {
 }
 
 function connectMQTT() {
-  const broker = document.getElementById('cfgBroker').value.trim();
+  const broker = document.getElementById('cfgBroker').value.trim() || "cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud";
   const port   = parseInt(document.getElementById('cfgPort').value) || 8884;
-  const user   = document.getElementById('cfgUser').value.trim();
-  const pass   = document.getElementById('cfgPass').value;
-  if (!broker || !user || !pass) { toast('Preencha broker, usuário e senha antes de conectar.', 'error'); return; }
+  const user   = document.getElementById('cfgUser').value.trim() || "monitortemp";
+  const pass   = document.getElementById('cfgPass').value || "061084Cc@";
 
   mqttCfg = { broker, port, user, pass };
   saveMqttCfg();
@@ -1300,8 +1249,7 @@ function connectMQTT() {
 
   const url = `wss://${broker}:${port}/mqtt`;
 
-  // clientId fixo por navegador — garante que o broker entregue mensagens
-  // retidas (retain) automaticamente ao reconectar após reload ou queda
+  // clientId fixo — broker re-entrega mensagens retidas ao reconectar
   let clientId = localStorage.getItem('amb_client_id');
   if (!clientId) {
     clientId = 'dash_' + Math.random().toString(36).substr(2, 9);
@@ -1312,7 +1260,7 @@ function connectMQTT() {
     clientId,
     username: user,
     password: pass,
-    clean: false,          // mantém sessão → broker re-entrega retains ao reconectar
+    clean: false,
     reconnectPeriod: 5000,
     connectTimeout: 10000,
   };
@@ -1389,16 +1337,12 @@ function showMqttCfg() {
   sec.style.display = 'block';
   body.classList.add('show');
   document.getElementById('cfgChevron').style.transform = 'rotate(180deg)';
-  // Preenche com salvo (sem expor a senha em texto — mostramos placeholder)
+  // Preenche com salvo
   if (mqttCfg.broker) {
     document.getElementById('cfgBroker').value = mqttCfg.broker;
     document.getElementById('cfgPort').value   = mqttCfg.port || 8884;
     document.getElementById('cfgUser').value   = mqttCfg.user || '';
     document.getElementById('cfgPass').value   = mqttCfg.pass || '';
-    // Trava os campos se já há configuração salva
-    lockMqttFields(true);
-  } else {
-    lockMqttFields(false);
   }
   sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1425,25 +1369,6 @@ document.getElementById('mqttCfgHead').addEventListener('click', () => {
 });
 
 document.getElementById('btnConnect').addEventListener('click', connectMQTT);
-
-document.getElementById('btnSaveMqttCreds').addEventListener('click', function() {
-  requireCredentials(
-    '💾 Salvar Credenciais MQTT',
-    'Confirme suas credenciais do app para salvar as configurações MQTT.',
-    false,
-    function() {
-      const broker = document.getElementById('cfgBroker').value.trim();
-      const port   = parseInt(document.getElementById('cfgPort').value) || 8884;
-      const user   = document.getElementById('cfgUser').value.trim();
-      const pass   = document.getElementById('cfgPass').value;
-      if (!broker || !user || !pass) { toast('Preencha todos os campos MQTT!', 'error'); return; }
-      mqttCfg = { broker, port, user, pass };
-      saveMqttCfg();
-      lockMqttFields(true);
-      toast('Credenciais MQTT salvas com segurança!', 'success');
-    }
-  );
-});
 
 /* ═════════════════════════════════════════
    MODAL
@@ -1506,7 +1431,7 @@ document.getElementById('btnSaveRoom').addEventListener('click', () => {
 window.removeRoom = removeRoom;
 
 renderRooms();
-window.addEventListener('resize', () => { calcCardSize(); });
+window.addEventListener('resize', calcCardSize);
 
 // Restaura timeouts de offline para ambientes já carregados
 rooms.forEach(room => {
@@ -1521,36 +1446,13 @@ rooms.forEach(room => {
   }
 });
 
-// Auto-conecta após login usando credenciais salvas no localStorage
+// Auto-conecta após login (controlado pelo sistema de auth)
 function autoConnectMQTT() {
-  const saved = JSON.parse(localStorage.getItem('amb_mqtt') || '{}');
-  if (saved.broker) {
-    document.getElementById('cfgBroker').value = saved.broker;
-    document.getElementById('cfgPort').value   = saved.port || 8884;
-    document.getElementById('cfgUser').value   = saved.user || '';
-    document.getElementById('cfgPass').value   = saved.pass || '';
-  }
+  document.getElementById('cfgBroker').value = "cee37ceeb13242b3a9099f84327c2c1c.s1.eu.hivemq.cloud";
+  document.getElementById('cfgPort').value   = 8884;
+  document.getElementById('cfgUser').value   = "monitortemp";
+  document.getElementById('cfgPass').value   = "061084Cc@";
   if (!mqttClient) connectMQTT();
-}
-
-// Lock/Unlock do painel MQTT — exige credenciais do app para editar
-function lockMqttFields(locked) {
-  const ids = ['cfgBroker', 'cfgPort', 'cfgUser', 'cfgPass'];
-  ids.forEach(id => { document.getElementById(id).disabled = locked; });
-  document.getElementById('btnSaveMqttCreds').disabled = locked;
-  document.getElementById('mqttLockMsg').style.display = locked ? 'block' : 'none';
-}
-
-function unlockMqttCfg() {
-  requireCredentials(
-    '🔓 Editar Configuração MQTT',
-    'Confirme suas credenciais do app para liberar a edição.',
-    false,
-    function() {
-      lockMqttFields(false);
-      toast('Campos MQTT desbloqueados para edição.', 'info');
-    }
-  );
 }
 setTimeout(() => {
   if (typeof isLoggedIn === 'function' && isLoggedIn()) autoConnectMQTT();
@@ -1754,9 +1656,7 @@ setTimeout(() => {
     _pendingCallback = callback;
     document.getElementById('confirmTitle').textContent = title;
     document.getElementById('confirmDesc').textContent  = desc;
-    // Preenche usuário automaticamente — operador só precisa digitar a senha
-    const creds = getCredentials();
-    document.getElementById('confirmUser').value = creds ? creds.user : '';
+    document.getElementById('confirmUser').value = '';
     document.getElementById('confirmPass').value = '';
     hideConfirmError();
 
@@ -1796,8 +1696,10 @@ setTimeout(() => {
       return;
     }
 
+    // Guarda callback ANTES de fechar (closeConfirm zera _pendingCallback)
+    const fn = _pendingCallback;
     closeConfirm();
-    if (_pendingCallback) _pendingCallback();
+    if (fn) fn();
   });
 
   // Enter para confirmar
