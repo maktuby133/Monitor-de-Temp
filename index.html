@@ -774,6 +774,10 @@ function removeRoom(roomId) {
 function connectMQTT(broker, port, user, pass) {
   if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
 
+  // Salva credenciais na sessionStorage para reconexão automática
+  _sessionMqtt = { broker, port, user, pass };
+  sessionStorage.setItem('amb_mqtt_session', JSON.stringify(_sessionMqtt));
+
   const url = `wss://${broker}:${port}/mqtt`;
   let clientId = localStorage.getItem('amb_client_id');
   if (!clientId) {
@@ -786,7 +790,10 @@ function connectMQTT(broker, port, user, pass) {
 
   mqttClient = mqtt.connect(url, {
     clientId, username: user, password: pass,
-    clean: false, reconnectPeriod: 5000, connectTimeout: 10000,
+    clean: true,          // evita conflito de sessão duplicada no broker
+    reconnectPeriod: 5000,
+    connectTimeout: 15000,
+    keepalive: 30,        // ping a cada 30s — mantém conexão ativa
   });
 
   mqttClient.on('connect', () => {
@@ -804,6 +811,7 @@ function connectMQTT(broker, port, user, pass) {
 
   mqttClient.on('error', err => { setBadge('error'); toast('Erro MQTT: ' + err.message, 'error'); });
   mqttClient.on('close', () => setBadge('disconnected'));
+  mqttClient.on('offline', () => setBadge('disconnected'));
   mqttClient.on('message', (topic, message) => {
     try {
       const data = JSON.parse(message.toString());
@@ -957,12 +965,24 @@ rooms.forEach(room => {
     sessionStorage.setItem(SESSION_KEY, 'ok');
     document.getElementById('authOverlay').classList.add('hidden');
     renderLogoutBtn();
-    // Abre o painel MQTT automaticamente para o usuário conectar
+    // Tenta reconectar com credenciais da sessão anterior (mesma aba)
+    const saved = sessionStorage.getItem('amb_mqtt_session');
+    if (saved) {
+      try {
+        const m = JSON.parse(saved);
+        if (m.broker && m.user && m.pass) {
+          setTimeout(() => connectMQTT(m.broker, m.port || 8884, m.user, m.pass), 400);
+          return;
+        }
+      } catch(e) {}
+    }
+    // Sem credenciais — abre painel MQTT
     setTimeout(() => showMqttCfg(), 400);
   }
 
   function logout() {
     sessionStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem('amb_mqtt_session');
     _sessionMqtt = { broker:'', port:8884, user:'', pass:'' };
     if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
     location.reload();
@@ -1007,10 +1027,22 @@ rooms.forEach(room => {
     }
 
     if (isLoggedIn() && !isRegisterMode) {
-      // Sessão ativa — entra direto, abre MQTT se não conectado
+      // Sessão ativa — entra direto
       document.getElementById('authOverlay').classList.add('hidden');
       renderLogoutBtn();
-      if (!mqttClient || !mqttClient.connected) setTimeout(() => showMqttCfg(), 400);
+      // Tenta reconectar automaticamente com credenciais salvas na sessão
+      const saved = sessionStorage.getItem('amb_mqtt_session');
+      if (saved) {
+        try {
+          const m = JSON.parse(saved);
+          if (m.broker && m.user && m.pass) {
+            setTimeout(() => connectMQTT(m.broker, m.port || 8884, m.user, m.pass), 400);
+            return;
+          }
+        } catch(e) {}
+      }
+      // Sem credenciais salvas — abre painel MQTT para o usuário preencher
+      setTimeout(() => showMqttCfg(), 400);
       return;
     }
 
