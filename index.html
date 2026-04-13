@@ -776,7 +776,7 @@ function connectMQTT(broker, port, user, pass) {
 
   // Salva credenciais na sessionStorage para reconexão automática
   _sessionMqtt = { broker, port, user, pass };
-  sessionStorage.setItem('amb_mqtt_session', JSON.stringify(_sessionMqtt));
+  localStorage.setItem('amb_mqtt_session', JSON.stringify(_sessionMqtt));
 
   const url = `wss://${broker}:${port}/mqtt`;
   let clientId = localStorage.getItem('amb_client_id');
@@ -966,7 +966,7 @@ rooms.forEach(room => {
     document.getElementById('authOverlay').classList.add('hidden');
     renderLogoutBtn();
     // Tenta reconectar com credenciais da sessão anterior (mesma aba)
-    const saved = sessionStorage.getItem('amb_mqtt_session');
+    const saved = localStorage.getItem('amb_mqtt_session');
     if (saved) {
       try {
         const m = JSON.parse(saved);
@@ -982,7 +982,7 @@ rooms.forEach(room => {
 
   function logout() {
     sessionStorage.removeItem(SESSION_KEY);
-    sessionStorage.removeItem('amb_mqtt_session');
+    localStorage.removeItem('amb_mqtt_session');
     _sessionMqtt = { broker:'', port:8884, user:'', pass:'' };
     if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
     location.reload();
@@ -1031,7 +1031,7 @@ rooms.forEach(room => {
       document.getElementById('authOverlay').classList.add('hidden');
       renderLogoutBtn();
       // Tenta reconectar automaticamente com credenciais salvas na sessão
-      const saved = sessionStorage.getItem('amb_mqtt_session');
+      const saved = localStorage.getItem('amb_mqtt_session');
       if (saved) {
         try {
           const m = JSON.parse(saved);
