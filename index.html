@@ -438,12 +438,6 @@ header {
       <p id="authSubtitle">Faça login para continuar</p>
     </div>
 
-    <!-- Step dots -->
-    <div class="auth-steps-dots" id="authDots">
-      <span class="active" id="dot1"></span>
-      <span id="dot2"></span>
-    </div>
-
     <div class="auth-error" id="authError"></div>
 
     <!-- ── STEP 1: email + senha ── -->
@@ -460,37 +454,8 @@ header {
         <label>Confirmar Senha</label>
         <input id="authPassConfirm" type="password" placeholder="Repita a senha" autocomplete="new-password">
       </div>
-      <button class="auth-btn" id="authBtnStep1">Continuar →</button>
+      <button class="auth-btn" id="authBtnStep1">Entrar →</button>
       <div class="auth-footer" id="authFooter"></div>
-    </div>
-
-    <!-- ── STEP 2: credenciais MQTT (sempre digitar — não salvo) ── -->
-    <div class="auth-step" id="authStep2">
-      <div class="mqtt-info-box">
-        🔒 As credenciais MQTT não são salvas no navegador. Digite-as a cada sessão para proteger o acesso ao seu broker.
-      </div>
-      <div class="auth-field">
-        <label>Broker MQTT (host)</label>
-        <input id="mqttBrokerInput" type="text" placeholder="xxxx.hivemq.cloud" autocomplete="off">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 90px;gap:10px;margin-bottom:14px">
-        <div class="auth-field" style="margin-bottom:0">
-          <label>Usuário MQTT</label>
-          <input id="mqttUserInput" type="text" placeholder="usuário" autocomplete="off">
-        </div>
-        <div class="auth-field" style="margin-bottom:0">
-          <label>Porta</label>
-          <input id="mqttPortInput" type="number" placeholder="8884" value="8884" autocomplete="off">
-        </div>
-      </div>
-      <div class="auth-field">
-        <label>Senha MQTT</label>
-        <input id="mqttPassInput" type="password" placeholder="••••••••" autocomplete="off">
-      </div>
-      <div style="display:flex;gap:10px;margin-top:8px">
-        <button class="btn-cancel" id="authBtnBack" style="flex:1;padding:11px">← Voltar</button>
-        <button class="auth-btn" id="authBtnStep2" style="margin-top:0;flex:2">Entrar e Conectar</button>
-      </div>
     </div>
   </div>
 </div>
@@ -971,7 +936,6 @@ rooms.forEach(room => {
   const STORAGE_KEY = 'amb_auth_v2';
   const SESSION_KEY = 'amb_session_v2';
 
-  // SHA-256 via SubtleCrypto (nativo, seguro, async)
   async function sha256(str) {
     const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
     return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
@@ -989,13 +953,12 @@ rooms.forEach(room => {
 
   function isLoggedIn() { return sessionStorage.getItem(SESSION_KEY) === 'ok'; }
 
-  function login(mqttBroker, mqttPort, mqttUser, mqttPass) {
+  function login() {
     sessionStorage.setItem(SESSION_KEY, 'ok');
     document.getElementById('authOverlay').classList.add('hidden');
     renderLogoutBtn();
-    // Conecta MQTT com as credenciais digitadas — não salvas
-    _sessionMqtt = { broker: mqttBroker, port: mqttPort, user: mqttUser, pass: mqttPass };
-    setTimeout(() => connectMQTT(mqttBroker, mqttPort, mqttUser, mqttPass), 300);
+    // Abre o painel MQTT automaticamente para o usuário conectar
+    setTimeout(() => showMqttCfg(), 400);
   }
 
   function logout() {
@@ -1022,20 +985,9 @@ rooms.forEach(room => {
   }
   function hideErr() { document.getElementById('authError').classList.remove('show'); }
 
-  // Valida email básico
   function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 
   let isRegisterMode = false;
-  let currentStep = 1;
-
-  function setStep(n) {
-    currentStep = n;
-    document.getElementById('authStep1').classList.toggle('active', n === 1);
-    document.getElementById('authStep2').classList.toggle('active', n === 2);
-    document.getElementById('dot1').classList.toggle('active', n === 1);
-    document.getElementById('dot2').classList.toggle('active', n === 2);
-    hideErr();
-  }
 
   function init() {
     const account = getAccount();
@@ -1050,25 +1002,22 @@ rooms.forEach(room => {
     } else {
       document.getElementById('authTitle').textContent = 'Bem-vindo';
       document.getElementById('authSubtitle').textContent = 'Faça login para continuar';
-      document.getElementById('authBtnStep1').textContent = 'Continuar →';
+      document.getElementById('authBtnStep1').textContent = 'Entrar →';
       document.getElementById('authPassConfirmWrap').style.display = 'none';
     }
 
-    // Se já tem sessão ativa, pede MQTT direto
     if (isLoggedIn() && !isRegisterMode) {
-      // Usuário voltou sem fechar aba — pede MQTT novamente (segurança)
-      document.getElementById('authTitle').textContent = 'Reconectar MQTT';
-      document.getElementById('authSubtitle').textContent = 'Digite as credenciais para continuar';
-      setStep(2);
+      // Sessão ativa — entra direto, abre MQTT se não conectado
+      document.getElementById('authOverlay').classList.add('hidden');
       renderLogoutBtn();
+      if (!mqttClient || !mqttClient.connected) setTimeout(() => showMqttCfg(), 400);
       return;
     }
 
-    // Caso não logado: mostra overlay
     document.getElementById('authOverlay').classList.remove('hidden');
   }
 
-  // STEP 1 → validar email+senha e avançar
+  // Validar email+senha e entrar
   document.getElementById('authBtnStep1').addEventListener('click', async function() {
     hideErr();
     const email = document.getElementById('authEmail').value.trim();
@@ -1089,36 +1038,13 @@ rooms.forEach(room => {
         showErr('E-mail ou senha incorretos.'); return;
       }
     }
-    setStep(2);
-    document.getElementById('mqttBrokerInput').focus();
-  });
-
-  // STEP 2 → validar MQTT e entrar
-  document.getElementById('authBtnStep2').addEventListener('click', function() {
-    hideErr();
-    const broker = document.getElementById('mqttBrokerInput').value.trim();
-    const port   = parseInt(document.getElementById('mqttPortInput').value) || 8884;
-    const user   = document.getElementById('mqttUserInput').value.trim();
-    const pass   = document.getElementById('mqttPassInput').value;
-
-    if (!broker || !user || !pass) { showErr('Preencha todas as credenciais MQTT.'); return; }
-
-    login(broker, port, user, pass);
-  });
-
-  // Voltar ao step 1
-  document.getElementById('authBtnBack').addEventListener('click', function() {
-    setStep(1);
+    login();
   });
 
   // Enter
   ['authEmail','authPass','authPassConfirm'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('authBtnStep1').click(); });
-  });
-  ['mqttBrokerInput','mqttUserInput','mqttPortInput','mqttPassInput'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('authBtnStep2').click(); });
   });
 
   window.isLoggedIn = isLoggedIn;
