@@ -8,213 +8,95 @@
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.10.1/mqtt.min.js"></script>
 <style>
-/* ═══════════════════════════════════════════
-   RESET & TOKENS
-═══════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
 :root {
-  --bg:          #070d1a;
-  --surface:     #0d1628;
-  --surface-2:   #121e35;
-  --border:      rgba(56,189,248,.12);
-  --border-h:    rgba(56,189,248,.35);
-  --accent:      #38bdf8;
-  --accent-dim:  rgba(56,189,248,.15);
-  --accent-glow: rgba(56,189,248,.25);
-  --warm:        #fb923c;
-  --warm-dim:    rgba(251,146,60,.15);
-  --cool:        #818cf8;
-  --cool-dim:    rgba(129,140,248,.15);
-  --green:       #34d399;
-  --red:         #f87171;
-  --text-1:      #f0f6ff;
-  --text-2:      #94a3b8;
-  --text-3:      #4a5a72;
-  --radius:      16px;
-  --radius-sm:   10px;
-  --shadow:      0 8px 32px rgba(0,0,0,.6);
-  --shadow-card: 0 4px 24px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.04) inset;
+  --bg:#070d1a; --surface:#0d1628; --surface-2:#121e35;
+  --border:rgba(56,189,248,.12); --border-h:rgba(56,189,248,.35);
+  --accent:#38bdf8; --accent-dim:rgba(56,189,248,.15); --accent-glow:rgba(56,189,248,.25);
+  --warm:#fb923c; --cool:#818cf8; --green:#34d399; --red:#f87171;
+  --text-1:#f0f6ff; --text-2:#94a3b8; --text-3:#4a5a72;
+  --radius:16px; --radius-sm:10px;
+  --shadow:0 8px 32px rgba(0,0,0,.6);
+  --shadow-card:0 4px 24px rgba(0,0,0,.4),0 1px 0 rgba(255,255,255,.04) inset;
 }
-
-html { font-size: 16px; }
-body {
-  font-family: 'DM Sans', sans-serif;
-  background: var(--bg);
-  color: var(--text-1);
-  min-height: 100vh;
-  overflow-x: hidden;
-}
-
+html { font-size:16px; }
+body { font-family:'DM Sans',sans-serif; background:var(--bg); color:var(--text-1); min-height:100vh; overflow-x:hidden; }
 body::before {
-  content: '';
-  position: fixed; inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2338bdf8' fill-opacity='0.025'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-  pointer-events: none;
-  z-index: 0;
+  content:''; position:fixed; inset:0;
+  background-image:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2338bdf8' fill-opacity='0.025'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events:none; z-index:0;
 }
 
-/* ─── LAYOUT ─── */
-.app { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px 80px; }
+/* LAYOUT */
+.app { position:relative; z-index:1; max-width:1400px; margin:0 auto; padding:0 24px 80px; }
 
-/* ─── HEADER ─── */
-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 28px 0 32px;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 36px;
-  gap: 16px;
-  flex-wrap: wrap;
-}
+/* HEADER */
+header { display:flex; align-items:center; justify-content:space-between; padding:28px 0 32px; border-bottom:1px solid var(--border); margin-bottom:36px; gap:16px; flex-wrap:wrap; }
+.brand { display:flex; align-items:center; gap:14px; }
+.brand-icon { width:44px; height:44px; background:var(--accent-dim); border:1px solid var(--border-h); border-radius:12px; display:grid; place-items:center; font-size:1.3rem; }
+.brand h1 { font-family:'Syne',sans-serif; font-weight:800; font-size:1.35rem; letter-spacing:-.02em; }
+.brand p  { font-size:.75rem; color:var(--text-3); margin-top:1px; }
+.header-actions { display:flex; align-items:center; gap:12px; }
 
-.brand { display: flex; align-items: center; gap: 14px; }
-.brand-icon {
-  width: 44px; height: 44px;
-  background: var(--accent-dim);
-  border: 1px solid var(--border-h);
-  border-radius: 12px;
-  display: grid;
-  place-items: center;
-  font-size: 1.3rem;
-}
-.brand h1 {
-  font-family: 'Syne', sans-serif;
-  font-weight: 800;
-  font-size: 1.35rem;
-  letter-spacing: -.02em;
-  color: var(--text-1);
-}
-.brand p { font-size: .75rem; color: var(--text-3); margin-top: 1px; }
-.header-actions { display: flex; align-items: center; gap: 12px; }
-
-/* ─── STATUS BADGE ─── */
-.conn-badge {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 14px;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  font-size: .78rem;
-  font-family: 'DM Mono', monospace;
-  color: var(--text-2);
-  transition: all .3s;
-}
-.conn-badge.connected { border-color: rgba(52,211,153,.3); color: var(--green); }
-.conn-badge.error     { border-color: rgba(248,113,113,.3); color: var(--red); }
-.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); transition: background .3s; }
-.conn-badge.connected .dot { background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 2s infinite; }
-.conn-badge.error     .dot { background: var(--red); }
-
+/* BADGE */
+.conn-badge { display:flex; align-items:center; gap:8px; padding:8px 14px; border-radius:999px; border:1px solid var(--border); background:var(--surface); font-size:.78rem; font-family:'DM Mono',monospace; color:var(--text-2); transition:all .3s; }
+.conn-badge.connected { border-color:rgba(52,211,153,.3); color:var(--green); }
+.conn-badge.error { border-color:rgba(248,113,113,.3); color:var(--red); }
+.dot { width:7px; height:7px; border-radius:50%; background:var(--text-3); transition:background .3s; }
+.conn-badge.connected .dot { background:var(--green); box-shadow:0 0 8px var(--green); animation:pulse 2s infinite; }
+.conn-badge.error .dot { background:var(--red); }
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-/* ─── BOTÕES ─── */
-.btn {
-  display: flex; align-items: center; gap: 8px;
-  padding: 9px 18px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-h);
-  background: var(--accent-dim);
-  color: var(--accent);
-  font-family: 'DM Sans', sans-serif;
-  font-size: .85rem; font-weight: 500;
-  cursor: pointer;
-  transition: all .2s;
-  white-space: nowrap;
-}
-.btn:hover { background: rgba(56,189,248,.25); border-color: var(--accent); box-shadow: 0 0 16px var(--accent-glow); }
-.btn svg { flex-shrink: 0; }
+/* BOTÕES */
+.btn { display:flex; align-items:center; gap:8px; padding:9px 18px; border-radius:var(--radius-sm); border:1px solid var(--border-h); background:var(--accent-dim); color:var(--accent); font-family:'DM Sans',sans-serif; font-size:.85rem; font-weight:500; cursor:pointer; transition:all .2s; white-space:nowrap; }
+.btn:hover { background:rgba(56,189,248,.25); border-color:var(--accent); box-shadow:0 0 16px var(--accent-glow); }
+.btn-logout { display:flex; align-items:center; gap:6px; padding:8px 14px; border-radius:var(--radius-sm); border:1px solid rgba(248,113,113,.3); background:rgba(248,113,113,.08); color:var(--red); font-family:'DM Sans',sans-serif; font-size:.82rem; font-weight:500; cursor:pointer; transition:all .2s; }
+.btn-logout:hover { background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.5); }
 
-/* ─── GRID DE AMBIENTES ─── */
-.rooms-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 320px), 1fr));
-  gap: 20px;
-}
+/* GRID */
+.rooms-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(var(--card-min,320px),1fr)); gap:20px; }
+.rooms-grid.compact .bar-wrap    { display:none; }
+.rooms-grid.compact .room-topic  { display:none; }
+.rooms-grid.compact .metric-unit { display:none; }
+.rooms-grid.compact .card-footer { padding-top:10px; }
+.rooms-grid.compact .room-card   { padding:14px; }
+.rooms-grid.compact .card-head   { margin-bottom:12px; }
+.rooms-grid.compact .metrics     { gap:8px; margin-bottom:12px; }
+.rooms-grid.compact .metric      { padding:8px 10px; }
+.rooms-grid.compact .metric-value{ font-size:clamp(1.1rem,1.8vw,1.8rem); }
 
-/* ─── MODO COMPACTO ─── */
-.rooms-grid.compact .bar-wrap     { display: none; }
-.rooms-grid.compact .room-topic   { display: none; }
-.rooms-grid.compact .metric-unit  { display: none; }
-.rooms-grid.compact .card-footer  { padding-top: 10px; }
-.rooms-grid.compact .room-card    { padding: 14px; }
-.rooms-grid.compact .card-head    { margin-bottom: 12px; }
-.rooms-grid.compact .metrics      { gap: 8px; margin-bottom: 12px; }
-.rooms-grid.compact .metric       { padding: 8px 10px; }
-.rooms-grid.compact .metric-value { font-size: clamp(1.1rem, 1.8vw, 1.8rem); }
-.rooms-grid.compact .metric-label { font-size: .55rem; }
-.rooms-grid.compact .room-label   { font-size: clamp(.65rem, .85vw, .82rem); }
-.rooms-grid.compact .last-update  { font-size: .6rem; }
-.rooms-grid.compact .icon-btn     { width: 24px; height: 24px; font-size: .7rem; }
-.rooms-grid.compact .room-icon    { width: 32px; height: 32px; font-size: .9rem; }
-.rooms-grid.compact .status-chip  { font-size: .62rem; padding: 3px 8px; }
-
-/* ─── CARD ─── */
-.room-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 24px;
-  position: relative;
-  overflow: hidden;
-  transition: border-color .3s, box-shadow .3s, transform .2s;
-  box-shadow: var(--shadow-card);
-  animation: cardIn .4s ease both;
-}
+/* CARD */
+.room-card { background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; position:relative; overflow:hidden; transition:border-color .3s,box-shadow .3s; box-shadow:var(--shadow-card); animation:cardIn .4s ease both; }
 @keyframes cardIn { from{opacity:0;transform:translateY(20px) scale(.97)} to{opacity:1;transform:none} }
-.room-card::before {
-  content:''; position:absolute; top:0;left:0;right:0; height:2px;
-  background: linear-gradient(90deg,transparent,var(--accent),transparent);
-  opacity:0; transition:opacity .3s;
-}
-.room-card:hover { border-color: var(--border-h); box-shadow: 0 8px 40px rgba(0,0,0,.6), 0 0 0 1px var(--border-h); }
+.room-card::before { content:''; position:absolute; top:0;left:0;right:0; height:2px; background:linear-gradient(90deg,transparent,var(--accent),transparent); opacity:0; transition:opacity .3s; }
+.room-card:hover { border-color:var(--border-h); box-shadow:0 8px 40px rgba(0,0,0,.6),0 0 0 1px var(--border-h); }
 .room-card:hover::before { opacity:1; }
-.room-card.online  { border-color: rgba(56,189,248,.2); }
-.room-card.offline { border-color: rgba(248,113,113,.15); }
+.room-card.online  { border-color:rgba(56,189,248,.2); }
+.room-card.offline { border-color:rgba(248,113,113,.15); }
 .room-card.offline::before { background:linear-gradient(90deg,transparent,var(--red),transparent); opacity:.5; }
-.card-glow {
-  position:absolute; width:200px; height:200px; border-radius:50%;
-  filter:blur(60px); pointer-events:none; top:-60px; right:-60px;
-  background:var(--accent-glow); opacity:.4; transition:opacity .3s;
-}
+.card-glow { position:absolute; width:200px; height:200px; border-radius:50%; filter:blur(60px); pointer-events:none; top:-60px; right:-60px; background:var(--accent-glow); opacity:.4; transition:opacity .3s; }
 .room-card:hover .card-glow { opacity:.7; }
 
-/* ─── CARD HEAD ─── */
 .card-head { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:24px; }
 .room-info { flex:1; min-width:0; }
-.room-icon {
-  width:40px; height:40px; border-radius:10px;
-  background:var(--accent-dim); border:1px solid var(--border-h);
-  display:grid; place-items:center; font-size:1.1rem;
-  flex-shrink:0; margin-left:12px;
-}
-.room-label { font-family:'Syne',sans-serif; font-weight:700; font-size:.9rem; color:var(--text-1); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-.room-topic { font-family:'DM Mono',monospace; font-size:.68rem; color:var(--text-3); margin-top:3px; }
-.status-chip {
-  display:inline-flex; align-items:center; gap:5px;
-  padding:4px 10px; border-radius:999px; font-size:.7rem; font-weight:500;
-  margin-top:6px; border:1px solid transparent;
-}
+.room-icon { width:40px; height:40px; border-radius:10px; background:var(--accent-dim); border:1px solid var(--border-h); display:grid; place-items:center; font-size:1.1rem; flex-shrink:0; margin-left:12px; }
+.room-label { font-family:'Syne',sans-serif; font-weight:700; font-size:.9rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.room-topic { font-family:'DM Mono',monospace; font-size:.62rem; color:var(--text-3); margin-top:2px; }
+.status-chip { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:999px; font-size:.7rem; font-weight:500; margin-top:6px; border:1px solid transparent; }
 .status-chip.online  { background:rgba(52,211,153,.1); border-color:rgba(52,211,153,.25); color:var(--green); }
 .status-chip.offline { background:rgba(248,113,113,.1); border-color:rgba(248,113,113,.25); color:var(--red); }
 .status-chip.waiting { background:rgba(148,163,184,.07); border-color:rgba(148,163,184,.15); color:var(--text-3); }
-.status-chip .sdot   { width:5px; height:5px; border-radius:50%; background:currentColor; }
+.status-chip .sdot { width:5px; height:5px; border-radius:50%; background:currentColor; }
 .status-chip.online .sdot { animation:pulse 2s infinite; }
 
-/* ─── MÉTRICAS ─── */
 .metrics { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
-.metric {
-  background:var(--surface-2); border:1px solid var(--border);
-  border-radius:var(--radius-sm); padding:12px 14px;
-  position:relative; overflow:hidden; transition:border-color .2s;
-}
+.metric { background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 14px; overflow:hidden; }
 .metric.temp { border-left:2px solid var(--warm); }
 .metric.hum  { border-left:2px solid var(--cool); }
-.metric-label { font-size:.6rem; color:var(--text-3); font-weight:500; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; display:flex; align-items:center; gap:4px; }
+.metric-label { font-size:.6rem; font-weight:500; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; display:flex; align-items:center; gap:4px; }
 .metric.temp .metric-label { color:var(--warm); }
 .metric.hum  .metric-label { color:var(--cool); }
-.metric-value { font-family:'DM Mono',monospace; font-weight:500; font-size:2.4rem; line-height:1; color:var(--text-1); transition:all .4s; letter-spacing:-.02em; }
+.metric-value { font-family:'DM Mono',monospace; font-weight:500; font-size:2.4rem; line-height:1; transition:all .4s; letter-spacing:-.02em; }
 .metric-unit  { font-family:'DM Mono',monospace; font-size:.65rem; color:var(--text-3); margin-top:2px; }
 .bar-wrap { margin-top:10px; }
 .bar-label { display:flex; justify-content:space-between; font-size:.58rem; color:var(--text-3); margin-bottom:3px; }
@@ -223,90 +105,53 @@ header {
 .metric.temp .bar-fill { background:linear-gradient(90deg,#fcd34d,#f97316); }
 .metric.hum  .bar-fill { background:linear-gradient(90deg,#818cf8,#38bdf8); }
 
-/* ─── CARD FOOTER ─── */
 .card-footer { display:flex; align-items:center; justify-content:space-between; padding-top:16px; border-top:1px solid var(--border); }
 .last-update { font-family:'DM Mono',monospace; font-size:.68rem; color:var(--text-3); }
 .card-actions { display:flex; gap:8px; }
-.icon-btn {
-  width:30px; height:30px; border-radius:8px;
-  background:transparent; border:1px solid var(--border); color:var(--text-3);
-  display:grid; place-items:center; cursor:pointer; transition:all .2s; font-size:.8rem;
-}
+.icon-btn { width:30px; height:30px; border-radius:8px; background:transparent; border:1px solid var(--border); color:var(--text-3); display:grid; place-items:center; cursor:pointer; transition:all .2s; font-size:.8rem; }
 .icon-btn:hover { background:var(--surface-2); border-color:var(--border-h); color:var(--text-2); }
 .icon-btn.del:hover { border-color:rgba(248,113,113,.4); color:var(--red); background:rgba(248,113,113,.08); }
 
-/* ─── ADD CARD ─── */
-.add-card {
-  border:2px dashed var(--border); border-radius:var(--radius);
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:10px; padding:40px 24px; cursor:pointer; transition:all .25s;
-  min-height:280px; background:transparent; color:var(--text-3);
-  animation:cardIn .4s ease both;
-}
+/* ADD CARD */
+.add-card { border:2px dashed var(--border); border-radius:var(--radius); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:40px 24px; cursor:pointer; transition:all .25s; min-height:280px; color:var(--text-3); animation:cardIn .4s ease both; }
 .add-card:hover { border-color:var(--border-h); color:var(--accent); background:var(--accent-dim); }
 .add-card .add-icon { width:52px; height:52px; border-radius:14px; border:2px dashed currentColor; display:grid; place-items:center; font-size:1.5rem; transition:transform .25s; }
 .add-card:hover .add-icon { transform:scale(1.1) rotate(5deg); }
 .add-card span { font-size:.85rem; font-weight:500; }
 
-/* ─── MODAL ─── */
-.modal-overlay {
-  position:fixed; inset:0; background:rgba(7,13,26,.85); backdrop-filter:blur(8px);
-  z-index:100; display:flex; align-items:center; justify-content:center; padding:20px;
-  opacity:0; pointer-events:none; transition:opacity .25s;
-}
-.modal-overlay.open { opacity:1; pointer-events:all; }
-.modal {
-  background:var(--surface); border:1px solid var(--border-h); border-radius:20px; padding:32px;
-  width:100%; max-width:460px; box-shadow:0 32px 64px rgba(0,0,0,.7);
-  transform:scale(.95) translateY(16px); transition:transform .25s;
-}
-.modal-overlay.open .modal { transform:scale(1) translateY(0); }
-.modal h2 { font-family:'Syne',sans-serif; font-weight:700; font-size:1.25rem; margin-bottom:6px; }
-.modal p  { font-size:.85rem; color:var(--text-2); margin-bottom:24px; }
-
-.form-group { margin-bottom:16px; }
-.form-group label { display:block; font-size:.72rem; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:7px; }
-.form-group input, .form-group select {
-  width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm);
-  padding:10px 14px; color:var(--text-1); font-family:'DM Sans',sans-serif; font-size:.9rem;
-  outline:none; transition:border .2s, box-shadow .2s;
-}
-.form-group input:focus, .form-group select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
-.form-group select option { background:var(--surface); }
-
-.mac-hint { font-size:.72rem; color:var(--accent); background:var(--accent-dim); border:1px solid var(--border-h); border-radius:8px; padding:8px 12px; margin-top:6px; }
-
-.icon-picker { display:flex; gap:8px; flex-wrap:wrap; }
-.icon-opt { width:40px; height:40px; border-radius:8px; border:1px solid var(--border); background:var(--bg); font-size:1.1rem; cursor:pointer; display:grid; place-items:center; transition:all .15s; }
-.icon-opt:hover, .icon-opt.sel { border-color:var(--accent); background:var(--accent-dim); }
-
-.modal-actions { display:flex; gap:10px; margin-top:24px; }
-.btn-cancel {
-  flex:1; padding:10px; border-radius:var(--radius-sm);
-  border:1px solid var(--border); background:transparent; color:var(--text-2);
-  font-family:'DM Sans',sans-serif; font-size:.9rem; cursor:pointer; transition:all .2s;
-}
-.btn-cancel:hover { border-color:var(--border-h); color:var(--text-1); }
-.btn-primary {
-  flex:2; padding:10px; border-radius:var(--radius-sm);
-  border:1px solid var(--accent); background:var(--accent-dim); color:var(--accent);
-  font-family:'DM Sans',sans-serif; font-size:.9rem; font-weight:600; cursor:pointer; transition:all .2s;
-}
-.btn-primary:hover { background:rgba(56,189,248,.3); box-shadow:0 0 20px var(--accent-glow); }
-
-/* ─── MQTT CONFIG SECTION ─── */
-.mqtt-cfg-section {
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:24px; margin-bottom:28px;
-}
+/* MQTT PANEL */
+.mqtt-cfg-section { background:var(--surface); border:1px solid var(--border-h); border-radius:var(--radius); padding:24px; margin-bottom:28px; }
 .mqtt-cfg-head { display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; }
 .mqtt-cfg-head h3 { font-family:'Syne',sans-serif; font-size:.95rem; font-weight:700; color:var(--text-2); }
 .mqtt-cfg-body { margin-top:20px; display:none; }
 .mqtt-cfg-body.show { display:block; }
 .cfg-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 @media (max-width:500px) { .cfg-grid { grid-template-columns:1fr; } }
+.mqtt-saved-badge { display:none; align-items:center; gap:6px; background:rgba(52,211,153,.1); border:1px solid rgba(52,211,153,.25); color:var(--green); border-radius:8px; padding:8px 12px; font-size:.78rem; font-weight:500; margin-bottom:14px; }
+.mqtt-saved-badge.show { display:flex; }
 
-/* ─── TOAST ─── */
+/* MODAL */
+.modal-overlay { position:fixed; inset:0; background:rgba(7,13,26,.85); backdrop-filter:blur(8px); z-index:100; display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
+.modal-overlay.open { opacity:1; pointer-events:all; }
+.modal { background:var(--surface); border:1px solid var(--border-h); border-radius:20px; padding:32px; width:100%; max-width:460px; box-shadow:0 32px 64px rgba(0,0,0,.7); transform:scale(.95) translateY(16px); transition:transform .25s; }
+.modal-overlay.open .modal { transform:scale(1) translateY(0); }
+.modal h2 { font-family:'Syne',sans-serif; font-weight:700; font-size:1.25rem; margin-bottom:6px; }
+.modal p  { font-size:.85rem; color:var(--text-2); margin-bottom:24px; }
+.form-group { margin-bottom:16px; }
+.form-group label { display:block; font-size:.72rem; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:7px; }
+.form-group input, .form-group select { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; color:var(--text-1); font-family:'DM Sans',sans-serif; font-size:.9rem; outline:none; transition:border .2s,box-shadow .2s; }
+.form-group input:focus, .form-group select:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
+.mac-hint { font-size:.72rem; color:var(--accent); background:var(--accent-dim); border:1px solid var(--border-h); border-radius:8px; padding:8px 12px; margin-top:6px; }
+.icon-picker { display:flex; gap:8px; flex-wrap:wrap; }
+.icon-opt { width:40px; height:40px; border-radius:8px; border:1px solid var(--border); background:var(--bg); font-size:1.1rem; cursor:pointer; display:grid; place-items:center; transition:all .15s; }
+.icon-opt:hover, .icon-opt.sel { border-color:var(--accent); background:var(--accent-dim); }
+.modal-actions { display:flex; gap:10px; margin-top:24px; }
+.btn-cancel { flex:1; padding:10px; border-radius:var(--radius-sm); border:1px solid var(--border); background:transparent; color:var(--text-2); font-family:'DM Sans',sans-serif; font-size:.9rem; cursor:pointer; transition:all .2s; }
+.btn-cancel:hover { border-color:var(--border-h); color:var(--text-1); }
+.btn-primary { flex:2; padding:10px; border-radius:var(--radius-sm); border:1px solid var(--accent); background:var(--accent-dim); color:var(--accent); font-family:'DM Sans',sans-serif; font-size:.9rem; font-weight:600; cursor:pointer; transition:all .2s; }
+.btn-primary:hover { background:rgba(56,189,248,.3); box-shadow:0 0 20px var(--accent-glow); }
+
+/* TOAST */
 .toast-wrap { position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column; gap:10px; z-index:9999; }
 .toast { padding:12px 18px; border-radius:10px; font-size:.83rem; font-weight:500; border:1px solid; box-shadow:var(--shadow); animation:toastIn .3s ease; pointer-events:none; }
 @keyframes toastIn { from{opacity:0;transform:translateX(20px)} to{opacity:1;transform:translateX(0)} }
@@ -320,97 +165,34 @@ header {
   .header-actions { width:100%; justify-content:flex-end; }
 }
 
-/* ═══════════════════════════════════════════
-   AUTH OVERLAY — multi-step (email + MQTT)
-═══════════════════════════════════════════ */
-.auth-overlay {
-  position:fixed; inset:0; background:var(--bg); z-index:999;
-  display:flex; align-items:center; justify-content:center; padding:20px;
-}
+/* AUTH */
+.auth-overlay { position:fixed; inset:0; background:var(--bg); z-index:999; display:flex; align-items:center; justify-content:center; padding:20px; }
 .auth-overlay.hidden { display:none; }
-
-.auth-box {
-  background:var(--surface); border:1px solid var(--border-h); border-radius:20px;
-  padding:36px 32px; width:100%; max-width:400px;
-  box-shadow:0 32px 64px rgba(0,0,0,.7); animation:cardIn .4s ease both;
-}
+.auth-box { background:var(--surface); border:1px solid var(--border-h); border-radius:20px; padding:36px 32px; width:100%; max-width:380px; box-shadow:0 32px 64px rgba(0,0,0,.7); animation:cardIn .4s ease both; }
 .auth-brand { text-align:center; margin-bottom:28px; }
 .auth-brand .auth-icon { font-size:2.5rem; margin-bottom:10px; }
-.auth-brand h2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; color:var(--text-1); }
+.auth-brand h2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; }
 .auth-brand p  { font-size:.8rem; color:var(--text-3); margin-top:4px; }
-
-.auth-step { display:none; }
-.auth-step.active { display:block; }
-
 .auth-field { margin-bottom:14px; }
 .auth-field label { display:block; font-size:.7rem; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
-.auth-field input {
-  width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm);
-  padding:10px 14px; color:var(--text-1); font-family:'DM Sans',sans-serif; font-size:.9rem;
-  outline:none; transition:border .2s, box-shadow .2s;
-}
+.auth-field input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 14px; color:var(--text-1); font-family:'DM Sans',sans-serif; font-size:.9rem; outline:none; transition:border .2s,box-shadow .2s; }
 .auth-field input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
-
-.auth-btn {
-  width:100%; margin-top:8px; padding:11px; border-radius:var(--radius-sm);
-  border:1px solid var(--accent); background:var(--accent-dim); color:var(--accent);
-  font-family:'Syne',sans-serif; font-size:.95rem; font-weight:700; cursor:pointer; transition:all .2s;
-}
+.auth-btn { width:100%; margin-top:8px; padding:11px; border-radius:var(--radius-sm); border:1px solid var(--accent); background:var(--accent-dim); color:var(--accent); font-family:'Syne',sans-serif; font-size:.95rem; font-weight:700; cursor:pointer; transition:all .2s; }
 .auth-btn:hover { background:rgba(56,189,248,.3); box-shadow:0 0 20px var(--accent-glow); }
-
-.auth-error {
-  background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.3); border-radius:8px;
-  color:var(--red); font-size:.8rem; padding:9px 12px; margin-bottom:14px; display:none; text-align:center;
-}
+.auth-error { background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.3); border-radius:8px; color:var(--red); font-size:.8rem; padding:9px 12px; margin-bottom:14px; display:none; text-align:center; }
 .auth-error.show { display:block; }
-
 .auth-footer { text-align:center; margin-top:14px; font-size:.75rem; color:var(--text-3); }
 
-/* Step dots */
-.auth-steps-dots { display:flex; justify-content:center; gap:8px; margin-bottom:24px; }
-.auth-steps-dots span {
-  width:8px; height:8px; border-radius:50%; background:var(--border);
-  transition:all .3s;
-}
-.auth-steps-dots span.active { background:var(--accent); box-shadow:0 0 8px var(--accent-glow); width:24px; border-radius:4px; }
-
-/* MQTT info box dentro do auth */
-.mqtt-info-box {
-  background:var(--accent-dim); border:1px solid var(--border-h); border-radius:10px;
-  padding:10px 14px; margin-bottom:14px; font-size:.78rem; color:var(--accent); line-height:1.5;
-}
-
-/* Logout btn */
-.btn-logout {
-  display:flex; align-items:center; gap:6px;
-  padding:8px 14px; border-radius:var(--radius-sm);
-  border:1px solid rgba(248,113,113,.3); background:rgba(248,113,113,.08); color:var(--red);
-  font-family:'DM Sans',sans-serif; font-size:.82rem; font-weight:500; cursor:pointer; transition:all .2s;
-}
-.btn-logout:hover { background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.5); }
-
-/* ─── CONFIRM OVERLAY ─── */
-.confirm-overlay {
-  position:fixed; inset:0; background:rgba(7,13,26,.88); backdrop-filter:blur(8px);
-  z-index:500; display:flex; align-items:center; justify-content:center; padding:20px;
-  opacity:0; pointer-events:none; transition:opacity .25s;
-}
+/* CONFIRM */
+.confirm-overlay { position:fixed; inset:0; background:rgba(7,13,26,.88); backdrop-filter:blur(8px); z-index:500; display:flex; align-items:center; justify-content:center; padding:20px; opacity:0; pointer-events:none; transition:opacity .25s; }
 .confirm-overlay.open { opacity:1; pointer-events:all; }
-.confirm-box {
-  background:var(--surface); border:1px solid var(--border-h); border-radius:18px; padding:28px;
-  width:100%; max-width:360px; box-shadow:0 32px 64px rgba(0,0,0,.7);
-  transform:scale(.95) translateY(12px); transition:transform .25s;
-}
+.confirm-box { background:var(--surface); border:1px solid var(--border-h); border-radius:18px; padding:28px; width:100%; max-width:360px; box-shadow:0 32px 64px rgba(0,0,0,.7); transform:scale(.95) translateY(12px); transition:transform .25s; }
 .confirm-overlay.open .confirm-box { transform:scale(1) translateY(0); }
-.confirm-box h3 { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:700; color:var(--text-1); margin-bottom:6px; }
+.confirm-box h3 { font-family:'Syne',sans-serif; font-size:1.05rem; font-weight:700; margin-bottom:6px; }
 .confirm-box p  { font-size:.82rem; color:var(--text-2); margin-bottom:18px; }
 .confirm-field { margin-bottom:14px; }
 .confirm-field label { display:block; font-size:.68rem; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
-.confirm-field input {
-  width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm);
-  padding:9px 13px; color:var(--text-1); font-family:'DM Sans',sans-serif; font-size:.88rem;
-  outline:none; transition:border .2s, box-shadow .2s;
-}
+.confirm-field input { width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 13px; color:var(--text-1); font-family:'DM Sans',sans-serif; font-size:.88rem; outline:none; transition:border .2s,box-shadow .2s; }
 .confirm-field input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
 .confirm-error { background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.3); border-radius:8px; color:var(--red); font-size:.78rem; padding:8px 12px; margin-bottom:12px; display:none; text-align:center; }
 .confirm-error.show { display:block; }
@@ -425,11 +207,7 @@ header {
 </head>
 <body>
 
-<!-- ════════════════════════════════
-     AUTH OVERLAY (multi-step)
-     Step 1 → Email + Senha
-     Step 2 → Credenciais MQTT (SEMPRE digitar)
-════════════════════════════════ -->
+<!-- AUTH: apenas email + senha -->
 <div class="auth-overlay" id="authOverlay">
   <div class="auth-box">
     <div class="auth-brand">
@@ -437,61 +215,21 @@ header {
       <h2 id="authTitle">Bem-vindo</h2>
       <p id="authSubtitle">Faça login para continuar</p>
     </div>
-
-    <!-- Step dots -->
-    <div class="auth-steps-dots" id="authDots">
-      <span class="active" id="dot1"></span>
-      <span id="dot2"></span>
-    </div>
-
     <div class="auth-error" id="authError"></div>
-
-    <!-- ── STEP 1: email + senha ── -->
-    <div class="auth-step active" id="authStep1">
-      <div class="auth-field">
-        <label>E-mail</label>
-        <input id="authEmail" type="email" placeholder="seu@email.com" autocomplete="email">
-      </div>
-      <div class="auth-field">
-        <label>Senha</label>
-        <input id="authPass" type="password" placeholder="Mínimo 8 caracteres" autocomplete="current-password">
-      </div>
-      <div class="auth-field" id="authPassConfirmWrap" style="display:none">
-        <label>Confirmar Senha</label>
-        <input id="authPassConfirm" type="password" placeholder="Repita a senha" autocomplete="new-password">
-      </div>
-      <button class="auth-btn" id="authBtnStep1">Continuar →</button>
-      <div class="auth-footer" id="authFooter"></div>
+    <div class="auth-field">
+      <label>E-mail</label>
+      <input id="authEmail" type="email" placeholder="seu@email.com" autocomplete="email">
     </div>
-
-    <!-- ── STEP 2: credenciais MQTT (sempre digitar — não salvo) ── -->
-    <div class="auth-step" id="authStep2">
-      <div class="mqtt-info-box">
-        🔒 As credenciais MQTT não são salvas no navegador. Digite-as a cada sessão para proteger o acesso ao seu broker.
-      </div>
-      <div class="auth-field">
-        <label>Broker MQTT (host)</label>
-        <input id="mqttBrokerInput" type="text" placeholder="xxxx.hivemq.cloud" autocomplete="off">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 90px;gap:10px;margin-bottom:14px">
-        <div class="auth-field" style="margin-bottom:0">
-          <label>Usuário MQTT</label>
-          <input id="mqttUserInput" type="text" placeholder="usuário" autocomplete="off">
-        </div>
-        <div class="auth-field" style="margin-bottom:0">
-          <label>Porta</label>
-          <input id="mqttPortInput" type="number" placeholder="8884" value="8884" autocomplete="off">
-        </div>
-      </div>
-      <div class="auth-field">
-        <label>Senha MQTT</label>
-        <input id="mqttPassInput" type="password" placeholder="••••••••" autocomplete="off">
-      </div>
-      <div style="display:flex;gap:10px;margin-top:8px">
-        <button class="btn-cancel" id="authBtnBack" style="flex:1;padding:11px">← Voltar</button>
-        <button class="auth-btn" id="authBtnStep2" style="margin-top:0;flex:2">Entrar e Conectar</button>
-      </div>
+    <div class="auth-field">
+      <label>Senha</label>
+      <input id="authPass" type="password" placeholder="Mínimo 8 caracteres" autocomplete="current-password">
     </div>
+    <div class="auth-field" id="authPassConfirmWrap" style="display:none">
+      <label>Confirmar Senha</label>
+      <input id="authPassConfirm" type="password" placeholder="Repita a senha" autocomplete="new-password">
+    </div>
+    <button class="auth-btn" id="authBtn">Entrar</button>
+    <div class="auth-footer" id="authFooter"></div>
   </div>
 </div>
 
@@ -521,13 +259,16 @@ header {
     </div>
   </header>
 
-  <!-- MQTT CONFIG (collapsible — para reconectar sem sair) -->
+  <!-- MQTT PANEL (dentro do dashboard) -->
   <div class="mqtt-cfg-section" id="mqttCfgSection" style="display:none">
     <div class="mqtt-cfg-head" id="mqttCfgHead">
-      <h3>⚙️ Reconectar MQTT</h3>
+      <h3>⚙️ Configuração MQTT</h3>
       <svg id="cfgChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
     </div>
     <div class="mqtt-cfg-body" id="mqttCfgBody">
+      <div class="mqtt-saved-badge" id="mqttSavedBadge">
+        ✅ Credenciais salvas — reconectando automaticamente
+      </div>
       <div class="cfg-grid">
         <div class="form-group">
           <label>Broker (host)</label>
@@ -538,15 +279,15 @@ header {
           <input id="cfgPort" type="number" value="8884" placeholder="8884">
         </div>
         <div class="form-group">
-          <label>Usuário</label>
+          <label>Usuário MQTT</label>
           <input id="cfgUser" type="text" placeholder="seu-usuario" autocomplete="off">
         </div>
         <div class="form-group">
-          <label>Senha</label>
+          <label>Senha MQTT</label>
           <input id="cfgPass" type="password" placeholder="••••••••" autocomplete="off">
         </div>
       </div>
-      <button class="btn-primary" id="btnConnect" style="width:100%;margin-top:4px">Conectar ao MQTT</button>
+      <button class="btn-primary" id="btnConnect" style="width:100%;margin-top:4px">🔌 Conectar ao MQTT</button>
     </div>
   </div>
 
@@ -560,12 +301,11 @@ header {
   </div>
 </div>
 
-<!-- MODAL ADICIONAR AMBIENTE -->
+<!-- MODAL AMBIENTE -->
 <div class="modal-overlay" id="addModal">
   <div class="modal">
     <h2>Novo Ambiente</h2>
-    <p>Configure o ambiente que deseja monitorar. Use o Device ID exibido na tela de configuração do sensor.</p>
-
+    <p>Use o Device ID exibido no portal Wi-Fi do sensor.</p>
     <div class="form-group">
       <label>Nome do Ambiente</label>
       <input id="mLabel" type="text" placeholder="ex: Sala de Estar, Quarto, Servidor...">
@@ -573,10 +313,8 @@ header {
     <div class="form-group">
       <label>Device ID (4 últimos bytes do MAC)</label>
       <input id="mTopic" type="text" placeholder="ex: a1b2c3d4" maxlength="16" style="font-family:'DM Mono',monospace;letter-spacing:.1em">
-      <div class="mac-hint">
-        📋 Copie do portal de configuração do ESP32 (rede Wi-Fi: <b>Sensor-XXXX</b>)
-      </div>
-      <div style="font-size:.7rem;color:var(--text-3);margin-top:6px">Tópico MQTT: sensors/<strong id="topicPreview" style="color:var(--accent)">...</strong>/data</div>
+      <div class="mac-hint">📋 Copie do portal do ESP32 (rede: <b>Sensor-XXXX</b>)</div>
+      <div style="font-size:.7rem;color:var(--text-3);margin-top:6px">Tópico: sensors/<strong id="topicPreview" style="color:var(--accent)">...</strong>/data</div>
     </div>
     <div class="form-group">
       <label>Ícone</label>
@@ -600,7 +338,7 @@ header {
   </div>
 </div>
 
-<!-- MODAL CONFIRMAÇÃO -->
+<!-- CONFIRM -->
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-box">
     <h3 id="confirmTitle">Confirmar ação</h3>
@@ -617,583 +355,410 @@ header {
   </div>
 </div>
 
-<!-- TOASTS -->
 <div class="toast-wrap" id="toastWrap"></div>
 
 <script>
-/* ═════════════════════════════════════════
-   STATE
-═════════════════════════════════════════ */
-let mqttClient = null;
-let rooms = JSON.parse(localStorage.getItem('amb_rooms') || '[]');
+/* ═══════════════ STATE ═══════════════ */
+let mqttClient  = null;
+let rooms       = JSON.parse(localStorage.getItem('amb_rooms') || '[]');
 let selectedIcon = '🏠';
 const TIMEOUT_MS = 300000; // 5 minutos
 
-// Sessão MQTT em memória apenas — nunca persiste
-let _sessionMqtt = { broker:'', port:8884, user:'', pass:'' };
-
-/* ═════════════════════════════════════════
-   UTILS
-═════════════════════════════════════════ */
+/* ═══════════════ UTILS ═══════════════ */
 function saveRooms() { localStorage.setItem('amb_rooms', JSON.stringify(rooms)); }
 
 function toast(msg, type='info', dur=3500) {
   const w = document.getElementById('toastWrap');
   const t = document.createElement('div');
-  t.className = `toast ${type}`;
-  t.textContent = msg;
-  w.appendChild(t);
-  setTimeout(() => t.remove(), dur);
+  t.className = `toast ${type}`; t.textContent = msg;
+  w.appendChild(t); setTimeout(() => t.remove(), dur);
 }
 
 function formatTime(ts) {
   if (!ts) return '–';
-  return new Date(ts).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+  return new Date(ts).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
 }
 
-/* ═════════════════════════════════════════
-   RENDER
-═════════════════════════════════════════ */
+async function sha256(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+/* ═══════════════ RENDER ═══════════════ */
 function calcCardSize() {
-  const n = Math.max(rooms.length, 1);
-  const grid = document.getElementById('roomsGrid');
-  const W = grid.clientWidth;
-  const compact = n > 10;
-  const maxCols = compact ? 8 : 6;
-  const cols = Math.min(n, maxCols);
-  const gap = 20 * (cols - 1);
-  const minSize = Math.max(compact ? 160 : 220, Math.floor((W - gap) / cols));
-  grid.style.setProperty('--card-min', minSize + 'px');
+  const n = Math.max(rooms.length,1), grid = document.getElementById('roomsGrid');
+  const compact = n>10, cols = Math.min(n,compact?8:6);
+  const minSize = Math.max(compact?160:220, Math.floor((grid.clientWidth-20*(cols-1))/cols));
+  grid.style.setProperty('--card-min', minSize+'px');
   grid.classList.toggle('compact', compact);
 }
 
 function renderRooms() {
   const grid = document.getElementById('roomsGrid');
-  grid.querySelectorAll('.room-card').forEach(c => c.remove());
-  rooms.forEach((room, idx) => {
-    const card = buildCard(room, idx);
-    grid.insertBefore(card, document.getElementById('addCardPlaceholder'));
-  });
+  grid.querySelectorAll('.room-card').forEach(c=>c.remove());
+  rooms.forEach((r,i)=>grid.insertBefore(buildCard(r,i), document.getElementById('addCardPlaceholder')));
   calcCardSize();
 }
 
-function buildCard(room, idx) {
+function buildCard(room) {
   const el = document.createElement('div');
-  el.className = `room-card ${room.status || 'waiting'}`;
+  el.className = `room-card ${room.status||'waiting'}`;
   el.id = `card-${room.id}`;
-
-  const tempPct = room.temperature != null ? Math.min(100, Math.max(0, (room.temperature / 50) * 100)) : 0;
-  const humPct  = room.humidity    != null ? Math.min(100, room.humidity) : 0;
-  const tempVal = room.temperature != null ? room.temperature.toFixed(1) : '–';
-  const humVal  = room.humidity    != null ? room.humidity.toFixed(1)    : '–';
-  const statusText  = room.status === 'online' ? 'Online' : room.status === 'offline' ? 'Offline' : 'Aguardando';
-  const statusClass = room.status || 'waiting';
-
+  const tPct = room.temperature!=null ? Math.min(100,Math.max(0,(room.temperature/50)*100)) : 0;
+  const hPct = room.humidity!=null ? Math.min(100,room.humidity) : 0;
+  const tVal = room.temperature!=null ? room.temperature.toFixed(1) : '–';
+  const hVal = room.humidity!=null ? room.humidity.toFixed(1) : '–';
+  const sT = room.status==='online'?'Online':room.status==='offline'?'Offline':'Aguardando';
+  const sC = room.status||'waiting';
   el.innerHTML = `
     <div class="card-glow"></div>
     <div class="card-head">
       <div class="room-info">
         <div class="room-label">${room.label}</div>
-        <div class="room-topic" style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-3);margin-top:2px">ID: ${room.id}</div>
-        <div class="status-chip ${statusClass}"><div class="sdot"></div> ${statusText}</div>
+        <div class="room-topic">ID: ${room.id}</div>
+        <div class="status-chip ${sC}"><div class="sdot"></div> ${sT}</div>
       </div>
       <div class="room-icon">${room.icon}</div>
     </div>
     <div class="metrics">
       <div class="metric temp">
         <div class="metric-label">🌡 Temperatura</div>
-        <div class="metric-value" id="temp-${room.id}">${tempVal}</div>
+        <div class="metric-value" id="temp-${room.id}">${tVal}</div>
         <div class="metric-unit">graus Celsius</div>
         <div class="bar-wrap">
           <div class="bar-label"><span>0°C</span><span>50°C</span></div>
-          <div class="bar-track"><div class="bar-fill" id="tempbar-${room.id}" style="width:${tempPct}%"></div></div>
+          <div class="bar-track"><div class="bar-fill" id="tempbar-${room.id}" style="width:${tPct}%"></div></div>
         </div>
       </div>
       <div class="metric hum">
         <div class="metric-label">💧 Humidade</div>
-        <div class="metric-value" id="hum-${room.id}">${humVal}</div>
+        <div class="metric-value" id="hum-${room.id}">${hVal}</div>
         <div class="metric-unit">por cento</div>
         <div class="bar-wrap">
           <div class="bar-label"><span>0%</span><span>100%</span></div>
-          <div class="bar-track"><div class="bar-fill" id="humbar-${room.id}" style="width:${humPct}%"></div></div>
+          <div class="bar-track"><div class="bar-fill" id="humbar-${room.id}" style="width:${hPct}%"></div></div>
         </div>
       </div>
     </div>
     <div class="card-footer">
-      <div class="last-update" id="upd-${room.id}">${room.lastUpdate ? formatTime(room.lastUpdate) : 'Sem dados'}</div>
+      <div class="last-update" id="upd-${room.id}">${room.lastUpdate?formatTime(room.lastUpdate):'Sem dados'}</div>
       <div class="card-actions">
         <button class="icon-btn del" title="Remover" onclick="removeRoom('${room.id}')">🗑</button>
       </div>
-    </div>
-  `;
+    </div>`;
   return el;
 }
 
 function updateCardData(roomId, data) {
-  const room = rooms.find(r => r.id === roomId);
+  const room = rooms.find(r=>r.id===roomId);
   if (!room) return;
-  if (data.temperature !== undefined) room.temperature = data.temperature;
-  if (data.humidity    !== undefined) room.humidity    = data.humidity;
-  room.status     = 'online';
+  if (data.temperature!==undefined) room.temperature = data.temperature;
+  if (data.humidity!==undefined)    room.humidity    = data.humidity;
+  room.status = 'online';
   room.lastUpdate = Date.now();
-
-  if (room._timeout) { clearTimeout(room._timeout); room._timeout = null; }
-  const _id = roomId; // captura o id por valor, sem depender do objeto room
-  room._timeout = setTimeout(() => setOffline(_id), TIMEOUT_MS);
-
+  if (room._timeout) { clearTimeout(room._timeout); room._timeout=null; }
+  const _id = roomId;
+  room._timeout = setTimeout(()=>setOffline(_id), TIMEOUT_MS);
   const card = document.getElementById(`card-${roomId}`);
   if (card) {
     card.className = 'room-card online';
     const chip = card.querySelector('.status-chip');
-    if (chip) { chip.className = 'status-chip online'; chip.innerHTML = '<div class="sdot"></div> Online'; }
-    const tv = document.getElementById(`temp-${roomId}`);
-    const hv = document.getElementById(`hum-${roomId}`);
-    const tb = document.getElementById(`tempbar-${roomId}`);
-    const hb = document.getElementById(`humbar-${roomId}`);
-    const upd = document.getElementById(`upd-${roomId}`);
-    if (tv) tv.textContent = room.temperature.toFixed(1);
-    if (hv) hv.textContent = room.humidity.toFixed(1);
-    if (tb) tb.style.width = Math.min(100, Math.max(0, (room.temperature / 50) * 100)) + '%';
-    if (hb) hb.style.width = Math.min(100, room.humidity) + '%';
+    if (chip) { chip.className='status-chip online'; chip.innerHTML='<div class="sdot"></div> Online'; }
+    const tv=document.getElementById(`temp-${roomId}`), hv=document.getElementById(`hum-${roomId}`);
+    const tb=document.getElementById(`tempbar-${roomId}`), hb=document.getElementById(`humbar-${roomId}`);
+    const upd=document.getElementById(`upd-${roomId}`);
+    if (tv)  tv.textContent  = room.temperature.toFixed(1);
+    if (hv)  hv.textContent  = room.humidity.toFixed(1);
+    if (tb)  tb.style.width  = Math.min(100,Math.max(0,(room.temperature/50)*100))+'%';
+    if (hb)  hb.style.width  = Math.min(100,room.humidity)+'%';
     if (upd) upd.textContent = formatTime(room.lastUpdate);
   }
   saveRooms();
 }
 
 function setOffline(roomId) {
-  const room = rooms.find(r => r.id === roomId);
+  const room = rooms.find(r=>r.id===roomId);
   if (!room) return;
   room.status = 'offline';
   const card = document.getElementById(`card-${roomId}`);
   if (card) {
     card.className = 'room-card offline';
     const chip = card.querySelector('.status-chip');
-    if (chip) { chip.className = 'status-chip offline'; chip.innerHTML = '<div class="sdot"></div> Offline'; }
+    if (chip) { chip.className='status-chip offline'; chip.innerHTML='<div class="sdot"></div> Offline'; }
   }
   saveRooms();
 }
 
 function addRoom(label, id, icon) {
-  const existing = rooms.find(r => r.id === id);
-  if (existing) { toast('Ambiente com este ID já existe!', 'error'); return; }
-  const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null };
-  rooms.push(room);
-  saveRooms();
-  renderRooms();
-  // Subscreve o novo tópico se conectado
-  if (mqttClient && mqttClient.connected) {
-    const topic = `sensors/${id}/data`;
-    mqttClient.subscribe(topic, { qos:1 });
-    toast(`Subscrito: ${topic}`, 'info');
-  }
-  toast(`Ambiente "${label}" adicionado!`, 'success');
+  if (rooms.find(r=>r.id===id)) { toast('Ambiente com este ID já existe!','error'); return; }
+  rooms.push({id,label,icon,status:'waiting',temperature:null,humidity:null,lastUpdate:null});
+  saveRooms(); renderRooms();
+  if (mqttClient&&mqttClient.connected) mqttClient.subscribe(`sensors/${id}/data`,{qos:1});
+  toast(`Ambiente "${label}" adicionado!`,'success');
 }
 
 function removeRoom(roomId) {
-  requireCredentials('🗑 Remover Ambiente', 'Digite sua senha para remover este ambiente.', true, () => {
-    rooms = rooms.filter(r => r.id !== roomId);
-    if (mqttClient && mqttClient.connected) mqttClient.unsubscribe(`sensors/${roomId}/data`);
-    saveRooms();
-    renderRooms();
-    toast('Ambiente removido.', 'info');
+  requireCredentials('🗑 Remover Ambiente','Digite sua senha para remover este ambiente.',true,()=>{
+    rooms = rooms.filter(r=>r.id!==roomId);
+    if (mqttClient&&mqttClient.connected) mqttClient.unsubscribe(`sensors/${roomId}/data`);
+    saveRooms(); renderRooms();
+    toast('Ambiente removido.','info');
   });
 }
 
-/* ═════════════════════════════════════════
-   MQTT
-═════════════════════════════════════════ */
+/* ═══════════════ MQTT ═══════════════ */
 function connectMQTT(broker, port, user, pass) {
-  if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
-
-  const url = `wss://${broker}:${port}/mqtt`;
+  if (mqttClient) { try{mqttClient.end(true);}catch(e){} mqttClient=null; }
   let clientId = localStorage.getItem('amb_client_id');
-  if (!clientId) {
-    clientId = 'dash_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('amb_client_id', clientId);
-  }
-
+  if (!clientId) { clientId='dash_'+Math.random().toString(36).substr(2,9); localStorage.setItem('amb_client_id',clientId); }
   setBadge('connecting');
-  toast('Conectando ao MQTT...', 'info');
-
-  mqttClient = mqtt.connect(url, {
-    clientId, username: user, password: pass,
-    clean: false, reconnectPeriod: 5000, connectTimeout: 10000,
+  toast('Conectando ao MQTT...','info');
+  mqttClient = mqtt.connect(`wss://${broker}:${port}/mqtt`,{
+    clientId, username:user, password:pass,
+    clean:false, reconnectPeriod:5000, connectTimeout:10000,
   });
-
-  mqttClient.on('connect', () => {
+  mqttClient.on('connect',()=>{
     setBadge('connected');
-    toast('MQTT conectado!', 'success');
-    rooms.forEach(r => {
-      const topic = `sensors/${r.id}/data`;
-      mqttClient.subscribe(topic, { qos:1 }, err => {
-        if (!err) console.log(`[MQTT] ✅ Subscrito: ${topic}`);
-        else console.error(`[MQTT] ❌ Erro: ${topic}`, err);
-      });
-    });
+    toast('MQTT conectado!','success');
+    // Salva credenciais após conexão bem-sucedida
+    localStorage.setItem('amb_mqtt', JSON.stringify({broker,port,user,pass}));
+    document.getElementById('mqttSavedBadge').classList.add('show');
+    rooms.forEach(r=>mqttClient.subscribe(`sensors/${r.id}/data`,{qos:1}));
     hideMqttCfg();
   });
-
-  mqttClient.on('error', err => { setBadge('error'); toast('Erro MQTT: ' + err.message, 'error'); });
-  mqttClient.on('close', () => setBadge('disconnected'));
-  mqttClient.on('message', (topic, message) => {
+  mqttClient.on('error', err=>{ setBadge('error'); toast('Erro MQTT: '+err.message,'error'); });
+  mqttClient.on('close', ()=>setBadge('disconnected'));
+  mqttClient.on('message',(topic,message)=>{
     try {
       const data = JSON.parse(message.toString());
-      const parts = topic.split('/');
-      const deviceId = parts[1];
-      const room = rooms.find(r => r.id === deviceId);
-      if (room) updateCardData(room.id, data);
-      else console.warn(`[MQTT] Sem ambiente para id="${deviceId}"`);
-    } catch(e) { console.warn('[MQTT] Parse error', e); }
+      const deviceId = topic.split('/')[1];
+      const room = rooms.find(r=>r.id===deviceId);
+      if (room) updateCardData(room.id,data);
+      else console.warn(`[MQTT] Nenhum ambiente id="${deviceId}"`);
+    } catch(e){ console.warn('[MQTT] Parse error',e); }
   });
+}
+
+function autoConnectMQTT() {
+  const raw = localStorage.getItem('amb_mqtt');
+  if (!raw) return;
+  const cfg = JSON.parse(raw);
+  if (!cfg.broker||!cfg.user||!cfg.pass) return;
+  document.getElementById('cfgBroker').value = cfg.broker;
+  document.getElementById('cfgPort').value   = cfg.port||8884;
+  document.getElementById('cfgUser').value   = cfg.user;
+  document.getElementById('cfgPass').value   = cfg.pass;
+  document.getElementById('mqttSavedBadge').classList.add('show');
+  connectMQTT(cfg.broker, cfg.port||8884, cfg.user, cfg.pass);
 }
 
 function setBadge(state) {
-  const badge = document.getElementById('connBadge');
-  const label = document.getElementById('connLabel');
-  badge.className = 'conn-badge';
-  if (state === 'connected')    { badge.classList.add('connected'); label.textContent = 'Conectado'; }
-  else if (state === 'error')   { badge.classList.add('error');     label.textContent = 'Erro'; }
-  else if (state === 'connecting') { label.textContent = 'Conectando...'; }
-  else                          { label.textContent = 'Desconectado'; }
+  const badge=document.getElementById('connBadge'), label=document.getElementById('connLabel');
+  badge.className='conn-badge';
+  if (state==='connected')    { badge.classList.add('connected'); label.textContent='Conectado'; }
+  else if (state==='error')   { badge.classList.add('error');     label.textContent='Erro'; }
+  else if (state==='connecting') { label.textContent='Conectando...'; }
+  else { label.textContent='Desconectado'; }
 }
 
 function showMqttCfg() {
-  const sec  = document.getElementById('mqttCfgSection');
-  const body = document.getElementById('mqttCfgBody');
-  sec.style.display = 'block';
-  body.classList.add('show');
-  document.getElementById('cfgChevron').style.transform = 'rotate(180deg)';
-  sec.scrollIntoView({ behavior:'smooth', block:'start' });
+  const sec=document.getElementById('mqttCfgSection'), body=document.getElementById('mqttCfgBody');
+  sec.style.display='block'; body.classList.add('show');
+  document.getElementById('cfgChevron').style.transform='rotate(180deg)';
+  sec.scrollIntoView({behavior:'smooth',block:'start'});
 }
-
 function hideMqttCfg() {
-  const sec  = document.getElementById('mqttCfgSection');
-  const body = document.getElementById('mqttCfgBody');
+  const body=document.getElementById('mqttCfgBody');
   body.classList.remove('show');
-  document.getElementById('cfgChevron').style.transform = '';
-  setTimeout(() => { if (!body.classList.contains('show')) sec.style.display = 'none'; }, 300);
+  document.getElementById('cfgChevron').style.transform='';
+  setTimeout(()=>{ if(!body.classList.contains('show')) document.getElementById('mqttCfgSection').style.display='none'; },300);
 }
 
-document.getElementById('btnMqttCfg').addEventListener('click', () => {
-  const sec = document.getElementById('mqttCfgSection');
-  if (sec.style.display === 'none' || !sec.style.display) showMqttCfg();
-  else hideMqttCfg();
+document.getElementById('btnMqttCfg').addEventListener('click',()=>{
+  const sec=document.getElementById('mqttCfgSection');
+  if(sec.style.display==='none'||!sec.style.display) showMqttCfg(); else hideMqttCfg();
 });
-document.getElementById('mqttCfgHead').addEventListener('click', () => {
-  const body = document.getElementById('mqttCfgBody');
-  const chev = document.getElementById('cfgChevron');
+document.getElementById('mqttCfgHead').addEventListener('click',()=>{
+  const body=document.getElementById('mqttCfgBody');
   body.classList.toggle('show');
-  chev.style.transform = body.classList.contains('show') ? 'rotate(180deg)' : '';
+  document.getElementById('cfgChevron').style.transform=body.classList.contains('show')?'rotate(180deg)':'';
 });
-document.getElementById('btnConnect').addEventListener('click', () => {
-  const b = document.getElementById('cfgBroker').value.trim();
-  const p = parseInt(document.getElementById('cfgPort').value) || 8884;
-  const u = document.getElementById('cfgUser').value.trim();
-  const pw= document.getElementById('cfgPass').value;
-  if (!b || !u || !pw) { toast('Preencha todos os campos MQTT!', 'error'); return; }
-  connectMQTT(b, p, u, pw);
+document.getElementById('btnConnect').addEventListener('click',()=>{
+  const b=document.getElementById('cfgBroker').value.trim();
+  const p=parseInt(document.getElementById('cfgPort').value)||8884;
+  const u=document.getElementById('cfgUser').value.trim();
+  const pw=document.getElementById('cfgPass').value;
+  if(!b||!u||!pw){ toast('Preencha todos os campos MQTT!','error'); return; }
+  connectMQTT(b,p,u,pw);
 });
 
-/* ═════════════════════════════════════════
-   MODAL ADICIONAR AMBIENTE
-═════════════════════════════════════════ */
-function openModal() {
-  document.getElementById('addModal').classList.add('open');
-  document.getElementById('mLabel').focus();
-}
+/* ═══════════════ MODAL AMBIENTE ═══════════════ */
+function openModal() { document.getElementById('addModal').classList.add('open'); document.getElementById('mLabel').focus(); }
 function closeModal() {
   document.getElementById('addModal').classList.remove('open');
-  document.getElementById('mLabel').value = '';
-  document.getElementById('mTopic').value = '';
-  document.getElementById('topicPreview').textContent = '...';
+  document.getElementById('mLabel').value='';
+  document.getElementById('mTopic').value='';
+  document.getElementById('topicPreview').textContent='...';
 }
-
-document.getElementById('btnAddRoom').addEventListener('click', function() {
-  if (!window.isLoggedIn || !window.isLoggedIn()) { document.getElementById('authOverlay').classList.remove('hidden'); return; }
-  requireCredentials('🔒 Adicionar Ambiente', 'Confirme sua senha para adicionar um ambiente.', false, openModal);
+document.getElementById('btnAddRoom').addEventListener('click',()=>requireCredentials('🔒 Adicionar Ambiente','Confirme sua senha.',false,openModal));
+document.getElementById('addCardPlaceholder').addEventListener('click',()=>requireCredentials('🔒 Adicionar Ambiente','Confirme sua senha.',false,openModal));
+document.getElementById('btnCancelModal').addEventListener('click',closeModal);
+document.getElementById('addModal').addEventListener('click',e=>{ if(e.target===document.getElementById('addModal')) closeModal(); });
+document.getElementById('mTopic').addEventListener('input',e=>{
+  document.getElementById('topicPreview').textContent=e.target.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'')||'...';
 });
-document.getElementById('addCardPlaceholder').addEventListener('click', function() {
-  if (!window.isLoggedIn || !window.isLoggedIn()) { document.getElementById('authOverlay').classList.remove('hidden'); return; }
-  requireCredentials('🔒 Adicionar Ambiente', 'Confirme sua senha para adicionar um ambiente.', false, openModal);
+document.getElementById('iconPicker').addEventListener('click',e=>{
+  const opt=e.target.closest('.icon-opt'); if(!opt) return;
+  document.querySelectorAll('.icon-opt').forEach(o=>o.classList.remove('sel'));
+  opt.classList.add('sel'); selectedIcon=opt.dataset.icon;
 });
-document.getElementById('btnCancelModal').addEventListener('click', closeModal);
-document.getElementById('addModal').addEventListener('click', e => { if (e.target === document.getElementById('addModal')) closeModal(); });
-
-document.getElementById('mTopic').addEventListener('input', e => {
-  const val = e.target.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '') || '...';
-  document.getElementById('topicPreview').textContent = val;
-});
-
-document.getElementById('iconPicker').addEventListener('click', e => {
-  const opt = e.target.closest('.icon-opt');
-  if (!opt) return;
-  document.querySelectorAll('.icon-opt').forEach(o => o.classList.remove('sel'));
-  opt.classList.add('sel');
-  selectedIcon = opt.dataset.icon;
+document.getElementById('btnSaveRoom').addEventListener('click',()=>{
+  const label=document.getElementById('mLabel').value.trim();
+  const rawId=document.getElementById('mTopic').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g,'');
+  if(!label||!rawId){ toast('Preencha todos os campos!','error'); return; }
+  addRoom(label,rawId,selectedIcon); closeModal();
 });
 
-document.getElementById('btnSaveRoom').addEventListener('click', () => {
-  const label = document.getElementById('mLabel').value.trim();
-  const rawId = document.getElementById('mTopic').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-  if (!label || !rawId) { toast('Preencha todos os campos!', 'error'); return; }
-  addRoom(label, rawId, selectedIcon);
-  closeModal();
-});
-
-/* ═════════════════════════════════════════
-   INIT
-═════════════════════════════════════════ */
+/* ═══════════════ INIT ═══════════════ */
 window.removeRoom = removeRoom;
 renderRooms();
 window.addEventListener('resize', calcCardSize);
-
-rooms.forEach(room => {
-  // Marca offline qualquer ambiente que ficou online salvo mas já passou do timeout
-  if (room.status === 'online' && room.lastUpdate) {
-    const elapsed = Date.now() - room.lastUpdate;
-    if (elapsed >= TIMEOUT_MS) {
-      room.status = 'offline';
-    }
-    // Não recria timeout no boot — o MQTT vai atualizar quando receber dados
-  } else if (room.status === 'online') {
-    room.status = 'offline';
-  }
+// Marca offline ambientes que passaram do timeout
+rooms.forEach(room=>{
+  if(room.status==='online'&&(!room.lastUpdate||(Date.now()-room.lastUpdate)>=TIMEOUT_MS)) room.status='offline';
 });
 
+/* ═══════════════ AUTH ═══════════════ */
+(function(){
+  const STORAGE_KEY='amb_auth_v2', SESSION_KEY='amb_session_v2';
 
-/* ═════════════════════════════════════════
-   AUTH SYSTEM
-   - Cadastro e login por e-mail + senha
-   - Senha mínimo 8 chars com hash SHA-256 (via SubtleCrypto)
-   - Credenciais MQTT: SEMPRE digitadas, NUNCA salvas
-═════════════════════════════════════════ */
-(function() {
-  const STORAGE_KEY = 'amb_auth_v2';
-  const SESSION_KEY = 'amb_session_v2';
+  function getAccount(){ const r=localStorage.getItem(STORAGE_KEY); return r?JSON.parse(r):null; }
 
-  // SHA-256 via SubtleCrypto (nativo, seguro, async)
-  async function sha256(str) {
-    const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+  async function saveAccount(email,pass){
+    const hash=await sha256(email.toLowerCase()+'|'+pass);
+    localStorage.setItem(STORAGE_KEY,JSON.stringify({email:email.toLowerCase(),hash}));
   }
 
-  function getAccount() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  }
+  function isLoggedIn(){ return sessionStorage.getItem(SESSION_KEY)==='ok'; }
 
-  async function saveAccount(email, pass) {
-    const hash = await sha256(email.toLowerCase() + '|' + pass);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ email: email.toLowerCase(), hash }));
-  }
-
-  function isLoggedIn() { return sessionStorage.getItem(SESSION_KEY) === 'ok'; }
-
-  function login(mqttBroker, mqttPort, mqttUser, mqttPass) {
-    sessionStorage.setItem(SESSION_KEY, 'ok');
+  function login(){
+    sessionStorage.setItem(SESSION_KEY,'ok');
     document.getElementById('authOverlay').classList.add('hidden');
     renderLogoutBtn();
-    // Conecta MQTT com as credenciais digitadas — não salvas
-    _sessionMqtt = { broker: mqttBroker, port: mqttPort, user: mqttUser, pass: mqttPass };
-    setTimeout(() => connectMQTT(mqttBroker, mqttPort, mqttUser, mqttPass), 300);
+    setTimeout(autoConnectMQTT, 400); // auto-conecta MQTT se tiver credenciais salvas
   }
 
-  function logout() {
+  function logout(){
     sessionStorage.removeItem(SESSION_KEY);
-    _sessionMqtt = { broker:'', port:8884, user:'', pass:'' };
-    if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
+    if(mqttClient){ try{mqttClient.end(true);}catch(e){} mqttClient=null; }
     location.reload();
   }
 
-  function renderLogoutBtn() {
-    const actions = document.getElementById('headerActions');
-    if (!actions.querySelector('.btn-logout')) {
-      const btn = document.createElement('button');
-      btn.className = 'btn-logout';
-      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Sair';
-      btn.onclick = logout;
-      actions.insertBefore(btn, actions.firstChild);
+  function renderLogoutBtn(){
+    const actions=document.getElementById('headerActions');
+    if(!actions.querySelector('.btn-logout')){
+      const btn=document.createElement('button');
+      btn.className='btn-logout';
+      btn.innerHTML='<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Sair';
+      btn.onclick=logout;
+      actions.insertBefore(btn,actions.firstChild);
     }
   }
 
-  function showErr(msg) {
-    const el = document.getElementById('authError');
-    el.textContent = msg; el.classList.add('show');
-  }
-  function hideErr() { document.getElementById('authError').classList.remove('show'); }
+  function showErr(msg){ const el=document.getElementById('authError'); el.textContent=msg; el.classList.add('show'); }
+  function hideErr(){ document.getElementById('authError').classList.remove('show'); }
+  function isEmail(v){ return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
 
-  // Valida email básico
-  function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
-
-  let isRegisterMode = false;
-  let currentStep = 1;
-
-  function setStep(n) {
-    currentStep = n;
-    document.getElementById('authStep1').classList.toggle('active', n === 1);
-    document.getElementById('authStep2').classList.toggle('active', n === 2);
-    document.getElementById('dot1').classList.toggle('active', n === 1);
-    document.getElementById('dot2').classList.toggle('active', n === 2);
-    hideErr();
-  }
-
-  function init() {
-    const account = getAccount();
-    isRegisterMode = !account;
-
-    if (isRegisterMode) {
-      document.getElementById('authTitle').textContent = 'Criar Conta';
-      document.getElementById('authSubtitle').textContent = 'Configure seu acesso';
-      document.getElementById('authBtnStep1').textContent = 'Criar Conta →';
-      document.getElementById('authPassConfirmWrap').style.display = 'block';
-      document.getElementById('authFooter').textContent = 'Suas credenciais ficam salvas apenas neste navegador.';
-    } else {
-      document.getElementById('authTitle').textContent = 'Bem-vindo';
-      document.getElementById('authSubtitle').textContent = 'Faça login para continuar';
-      document.getElementById('authBtnStep1').textContent = 'Continuar →';
-      document.getElementById('authPassConfirmWrap').style.display = 'none';
+  function init(){
+    const account=getAccount(), isRegister=!account;
+    if(isRegister){
+      document.getElementById('authTitle').textContent='Criar Conta';
+      document.getElementById('authSubtitle').textContent='Configure seu acesso';
+      document.getElementById('authBtn').textContent='Criar e Entrar';
+      document.getElementById('authPassConfirmWrap').style.display='block';
+      document.getElementById('authFooter').textContent='Suas credenciais ficam salvas neste navegador.';
     }
-
-    // Se já tem sessão ativa, pede MQTT direto
-    if (isLoggedIn() && !isRegisterMode) {
-      // Usuário voltou sem fechar aba — pede MQTT novamente (segurança)
-      document.getElementById('authTitle').textContent = 'Reconectar MQTT';
-      document.getElementById('authSubtitle').textContent = 'Digite as credenciais para continuar';
-      setStep(2);
+    // Sessão ativa → entra direto
+    if(isLoggedIn()&&!isRegister){
+      document.getElementById('authOverlay').classList.add('hidden');
       renderLogoutBtn();
+      setTimeout(autoConnectMQTT,400);
       return;
     }
-
-    // Caso não logado: mostra overlay
-    document.getElementById('authOverlay').classList.remove('hidden');
+    document.getElementById('authBtn').addEventListener('click',async function(){
+      hideErr();
+      const email=document.getElementById('authEmail').value.trim();
+      const pass=document.getElementById('authPass').value;
+      if(!isEmail(email)){ showErr('E-mail inválido.'); return; }
+      if(pass.length<8){ showErr('Senha deve ter ao menos 8 caracteres.'); return; }
+      if(isRegister){
+        const confirm=document.getElementById('authPassConfirm').value;
+        if(pass!==confirm){ showErr('As senhas não coincidem.'); return; }
+        await saveAccount(email,pass);
+        toast('Conta criada!','success');
+        login();
+      } else {
+        const hash=await sha256(email.toLowerCase()+'|'+pass);
+        if(email.toLowerCase()!==account.email||hash!==account.hash){ showErr('E-mail ou senha incorretos.'); return; }
+        login();
+      }
+    });
+    ['authEmail','authPass','authPassConfirm'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el) el.addEventListener('keydown',e=>{ if(e.key==='Enter') document.getElementById('authBtn').click(); });
+    });
   }
 
-  // STEP 1 → validar email+senha e avançar
-  document.getElementById('authBtnStep1').addEventListener('click', async function() {
-    hideErr();
-    const email = document.getElementById('authEmail').value.trim();
-    const pass  = document.getElementById('authPass').value;
-
-    if (!isEmail(email)) { showErr('E-mail inválido.'); return; }
-    if (pass.length < 8)  { showErr('Senha deve ter ao menos 8 caracteres.'); return; }
-
-    if (isRegisterMode) {
-      const confirm = document.getElementById('authPassConfirm').value;
-      if (pass !== confirm) { showErr('As senhas não coincidem.'); return; }
-      await saveAccount(email, pass);
-      toast('Conta criada!', 'success');
-    } else {
-      const account = getAccount();
-      const hash = await sha256(email.toLowerCase() + '|' + pass);
-      if (email.toLowerCase() !== account.email || hash !== account.hash) {
-        showErr('E-mail ou senha incorretos.'); return;
-      }
-    }
-    setStep(2);
-    document.getElementById('mqttBrokerInput').focus();
-  });
-
-  // STEP 2 → validar MQTT e entrar
-  document.getElementById('authBtnStep2').addEventListener('click', function() {
-    hideErr();
-    const broker = document.getElementById('mqttBrokerInput').value.trim();
-    const port   = parseInt(document.getElementById('mqttPortInput').value) || 8884;
-    const user   = document.getElementById('mqttUserInput').value.trim();
-    const pass   = document.getElementById('mqttPassInput').value;
-
-    if (!broker || !user || !pass) { showErr('Preencha todas as credenciais MQTT.'); return; }
-
-    login(broker, port, user, pass);
-  });
-
-  // Voltar ao step 1
-  document.getElementById('authBtnBack').addEventListener('click', function() {
-    setStep(1);
-  });
-
-  // Enter
-  ['authEmail','authPass','authPassConfirm'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('authBtnStep1').click(); });
-  });
-  ['mqttBrokerInput','mqttUserInput','mqttPortInput','mqttPassInput'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('authBtnStep2').click(); });
-  });
-
-  window.isLoggedIn = isLoggedIn;
-  window.authLogout = logout;
-
-  document.addEventListener('DOMContentLoaded', init);
+  window.isLoggedIn=isLoggedIn;
+  document.addEventListener('DOMContentLoaded',init);
 })();
 
+/* ═══════════════ CONFIRMAÇÃO ═══════════════ */
+(function(){
+  let _cb=null;
+  function getAccount(){ const r=localStorage.getItem('amb_auth_v2'); return r?JSON.parse(r):null; }
+  function showErr(msg){ const el=document.getElementById('confirmError'); el.textContent=msg; el.classList.add('show'); }
+  function hideErr(){ document.getElementById('confirmError').classList.remove('show'); }
 
-/* ═════════════════════════════════════════
-   CONFIRMAÇÃO COM SENHA
-   Simplificado: pede apenas senha (email já logado)
-═════════════════════════════════════════ */
-(function() {
-  let _pendingCallback = null;
-
-  async function sha256(str) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  }
-
-  function getAccount() {
-    const raw = localStorage.getItem('amb_auth_v2');
-    return raw ? JSON.parse(raw) : null;
-  }
-
-  function showErr(msg) { const el=document.getElementById('confirmError'); el.textContent=msg; el.classList.add('show'); }
-  function hideErr()     { document.getElementById('confirmError').classList.remove('show'); }
-
-  window.requireCredentials = function(title, desc, isDanger, callback) {
-    _pendingCallback = callback;
-    document.getElementById('confirmTitle').textContent = title;
-    document.getElementById('confirmDesc').textContent  = desc;
-    document.getElementById('confirmPass').value = '';
+  window.requireCredentials=function(title,desc,isDanger,callback){
+    _cb=callback;
+    document.getElementById('confirmTitle').textContent=title;
+    document.getElementById('confirmDesc').textContent=desc;
+    document.getElementById('confirmPass').value='';
     hideErr();
-    const okBtn = document.getElementById('confirmOk');
-    okBtn.className = 'confirm-ok' + (isDanger ? ' danger' : '');
-    okBtn.textContent = isDanger ? '⚠️ Confirmar' : '✓ Confirmar';
+    const ok=document.getElementById('confirmOk');
+    ok.className='confirm-ok'+(isDanger?' danger':'');
+    ok.textContent=isDanger?'⚠️ Confirmar':'✓ Confirmar';
     document.getElementById('confirmOverlay').classList.add('open');
-    setTimeout(() => document.getElementById('confirmPass').focus(), 100);
+    setTimeout(()=>document.getElementById('confirmPass').focus(),100);
   };
 
-  function closeConfirm() {
-    document.getElementById('confirmOverlay').classList.remove('open');
-    _pendingCallback = null;
-  }
+  function closeConfirm(){ document.getElementById('confirmOverlay').classList.remove('open'); _cb=null; }
 
-  document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
-  document.getElementById('confirmOverlay').addEventListener('click', function(e) { if (e.target===this) closeConfirm(); });
+  document.getElementById('confirmCancel').addEventListener('click',closeConfirm);
+  document.getElementById('confirmOverlay').addEventListener('click',function(e){ if(e.target===this) closeConfirm(); });
 
-  document.getElementById('confirmOk').addEventListener('click', async function() {
+  document.getElementById('confirmOk').addEventListener('click',async function(){
     hideErr();
-    const pass = document.getElementById('confirmPass').value;
-    if (!pass) { showErr('Digite sua senha.'); return; }
+    const pass=document.getElementById('confirmPass').value;
+    if(!pass){ showErr('Digite sua senha.'); return; }
+    const account=getAccount();
+    if(!account){ showErr('Nenhuma conta encontrada.'); return; }
 
-    const account = getAccount();
-    if (!account) { showErr('Nenhuma conta encontrada.'); return; }
-
-    // Captura callback ANTES do await — o closeConfirm zeraria _pendingCallback
-    const fn = _pendingCallback;
-
-    const hash = await sha256(account.email + '|' + pass);
-    if (hash !== account.hash) {
+    const fn=_cb; // captura ANTES do await
+    const hash=await sha256(account.email+'|'+pass);
+    if(hash!==account.hash){
       showErr('Senha incorreta.');
-      document.getElementById('confirmPass').value = '';
+      document.getElementById('confirmPass').value='';
       document.getElementById('confirmPass').focus();
       return;
     }
-
     closeConfirm();
-    if (fn) fn();
+    if(fn) fn();
   });
 
-  document.getElementById('confirmPass').addEventListener('keydown', function(e) {
-    if (e.key==='Enter') document.getElementById('confirmOk').click();
+  document.getElementById('confirmPass').addEventListener('keydown',function(e){
+    if(e.key==='Enter') document.getElementById('confirmOk').click();
   });
 })();
 </script>
