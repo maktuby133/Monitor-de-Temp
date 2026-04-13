@@ -627,7 +627,7 @@ header {
 let mqttClient = null;
 let rooms = JSON.parse(localStorage.getItem('amb_rooms') || '[]');
 let selectedIcon = '🏠';
-const TIMEOUT_MS = 90000;
+const TIMEOUT_MS = 300000; // 5 minutos
 
 // Sessão MQTT em memória apenas — nunca persiste
 let _sessionMqtt = { broker:'', port:8884, user:'', pass:'' };
@@ -737,8 +737,9 @@ function updateCardData(roomId, data) {
   room.status     = 'online';
   room.lastUpdate = Date.now();
 
-  if (room._timeout) clearTimeout(room._timeout);
-  room._timeout = setTimeout(() => setOffline(room.id), TIMEOUT_MS);
+  if (room._timeout) { clearTimeout(room._timeout); room._timeout = null; }
+  const _id = roomId; // captura o id por valor, sem depender do objeto room
+  room._timeout = setTimeout(() => setOffline(_id), TIMEOUT_MS);
 
   const card = document.getElementById(`card-${roomId}`);
   if (card) {
@@ -947,11 +948,15 @@ renderRooms();
 window.addEventListener('resize', calcCardSize);
 
 rooms.forEach(room => {
+  // Marca offline qualquer ambiente que ficou online salvo mas já passou do timeout
   if (room.status === 'online' && room.lastUpdate) {
     const elapsed = Date.now() - room.lastUpdate;
-    const remaining = TIMEOUT_MS - elapsed;
-    if (remaining > 0) room._timeout = setTimeout(() => setOffline(room.id), remaining);
-    else room.status = 'offline';
+    if (elapsed >= TIMEOUT_MS) {
+      room.status = 'offline';
+    }
+    // Não recria timeout no boot — o MQTT vai atualizar quando receber dados
+  } else if (room.status === 'online') {
+    room.status = 'offline';
   }
 });
 
@@ -1172,6 +1177,9 @@ rooms.forEach(room => {
     const account = getAccount();
     if (!account) { showErr('Nenhuma conta encontrada.'); return; }
 
+    // Captura callback ANTES do await — o closeConfirm zeraria _pendingCallback
+    const fn = _pendingCallback;
+
     const hash = await sha256(account.email + '|' + pass);
     if (hash !== account.hash) {
       showErr('Senha incorreta.');
@@ -1180,7 +1188,6 @@ rooms.forEach(room => {
       return;
     }
 
-    const fn = _pendingCallback;
     closeConfirm();
     if (fn) fn();
   });
