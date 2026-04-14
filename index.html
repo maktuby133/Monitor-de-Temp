@@ -87,7 +87,7 @@ header {
   color: var(--text-1);
 }
 .brand p { font-size: .75rem; color: var(--text-3); margin-top: 1px; }
-.header-actions { display: flex; align-items: center; gap: 12px; }
+.header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
 /* ─── STATUS BADGE ─── */
 .conn-badge {
@@ -223,9 +223,10 @@ header {
 .metric.temp .bar-fill { background:linear-gradient(90deg,#fcd34d,#f97316); }
 .metric.hum  .bar-fill { background:linear-gradient(90deg,#818cf8,#38bdf8); }
 
-/* ─── CARD FOOTER ─── */
+/* ─── LAST UPDATE com indicador de frescor ─── */
 .card-footer { display:flex; align-items:center; justify-content:space-between; padding-top:16px; border-top:1px solid var(--border); }
 .last-update { font-family:'DM Mono',monospace; font-size:.68rem; color:var(--text-3); }
+.last-update.fresh { color:var(--green); }
 .card-actions { display:flex; gap:8px; }
 .icon-btn {
   width:30px; height:30px; border-radius:8px;
@@ -257,8 +258,9 @@ header {
 .modal-overlay.open { opacity:1; pointer-events:all; }
 .modal {
   background:var(--surface); border:1px solid var(--border-h); border-radius:20px; padding:32px;
-  width:100%; max-width:460px; box-shadow:0 32px 64px rgba(0,0,0,.7);
+  width:100%; max-width:480px; box-shadow:0 32px 64px rgba(0,0,0,.7);
   transform:scale(.95) translateY(16px); transition:transform .25s;
+  max-height:90vh; overflow-y:auto;
 }
 .modal-overlay.open .modal { transform:scale(1) translateY(0); }
 .modal h2 { font-family:'Syne',sans-serif; font-weight:700; font-size:1.25rem; margin-bottom:6px; }
@@ -294,17 +296,12 @@ header {
 }
 .btn-primary:hover { background:rgba(56,189,248,.3); box-shadow:0 0 20px var(--accent-glow); }
 
-/* ─── MQTT CONFIG SECTION ─── */
-.mqtt-cfg-section {
-  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius);
-  padding:24px; margin-bottom:28px;
+/* ─── SECTION DIVIDER ─── */
+.section-divider {
+  font-size:.7rem; font-weight:700; color:var(--accent); text-transform:uppercase;
+  letter-spacing:.1em; display:flex; align-items:center; gap:10px; margin:20px 0 16px;
 }
-.mqtt-cfg-head { display:flex; align-items:center; justify-content:space-between; cursor:pointer; user-select:none; }
-.mqtt-cfg-head h3 { font-family:'Syne',sans-serif; font-size:.95rem; font-weight:700; color:var(--text-2); }
-.mqtt-cfg-body { margin-top:20px; display:none; }
-.mqtt-cfg-body.show { display:block; }
-.cfg-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
-@media (max-width:500px) { .cfg-grid { grid-template-columns:1fr; } }
+.section-divider::before, .section-divider::after { content:''; flex:1; height:1px; background:var(--border); }
 
 /* ─── TOAST ─── */
 .toast-wrap { position:fixed; bottom:24px; right:24px; display:flex; flex-direction:column; gap:10px; z-index:9999; }
@@ -321,7 +318,7 @@ header {
 }
 
 /* ═══════════════════════════════════════════
-   AUTH OVERLAY — multi-step (email + MQTT)
+   AUTH OVERLAY — LOGIN FIXO
 ═══════════════════════════════════════════ */
 .auth-overlay {
   position:fixed; inset:0; background:var(--bg); z-index:999;
@@ -331,16 +328,13 @@ header {
 
 .auth-box {
   background:var(--surface); border:1px solid var(--border-h); border-radius:20px;
-  padding:36px 32px; width:100%; max-width:400px;
+  padding:36px 32px; width:100%; max-width:380px;
   box-shadow:0 32px 64px rgba(0,0,0,.7); animation:cardIn .4s ease both;
 }
 .auth-brand { text-align:center; margin-bottom:28px; }
 .auth-brand .auth-icon { font-size:2.5rem; margin-bottom:10px; }
 .auth-brand h2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; color:var(--text-1); }
 .auth-brand p  { font-size:.8rem; color:var(--text-3); margin-top:4px; }
-
-.auth-step { display:none; }
-.auth-step.active { display:block; }
 
 .auth-field { margin-bottom:14px; }
 .auth-field label { display:block; font-size:.7rem; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
@@ -352,33 +346,18 @@ header {
 .auth-field input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
 
 .auth-btn {
-  width:100%; margin-top:8px; padding:11px; border-radius:var(--radius-sm);
+  width:100%; margin-top:10px; padding:12px; border-radius:var(--radius-sm);
   border:1px solid var(--accent); background:var(--accent-dim); color:var(--accent);
   font-family:'Syne',sans-serif; font-size:.95rem; font-weight:700; cursor:pointer; transition:all .2s;
 }
 .auth-btn:hover { background:rgba(56,189,248,.3); box-shadow:0 0 20px var(--accent-glow); }
+.auth-btn:disabled { opacity:.5; cursor:not-allowed; }
 
 .auth-error {
   background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.3); border-radius:8px;
   color:var(--red); font-size:.8rem; padding:9px 12px; margin-bottom:14px; display:none; text-align:center;
 }
 .auth-error.show { display:block; }
-
-.auth-footer { text-align:center; margin-top:14px; font-size:.75rem; color:var(--text-3); }
-
-/* Step dots */
-.auth-steps-dots { display:flex; justify-content:center; gap:8px; margin-bottom:24px; }
-.auth-steps-dots span {
-  width:8px; height:8px; border-radius:50%; background:var(--border);
-  transition:all .3s;
-}
-.auth-steps-dots span.active { background:var(--accent); box-shadow:0 0 8px var(--accent-glow); width:24px; border-radius:4px; }
-
-/* MQTT info box dentro do auth */
-.mqtt-info-box {
-  background:var(--accent-dim); border:1px solid var(--border-h); border-radius:10px;
-  padding:10px 14px; margin-bottom:14px; font-size:.78rem; color:var(--accent); line-height:1.5;
-}
 
 /* Logout btn */
 .btn-logout {
@@ -421,42 +400,45 @@ header {
 .confirm-ok:hover { background:rgba(56,189,248,.3); }
 .confirm-ok.danger { border-color:rgba(248,113,113,.5); background:rgba(248,113,113,.08); color:var(--red); }
 .confirm-ok.danger:hover { background:rgba(248,113,113,.18); }
+
+/* ─── MQTT INFO BOX ─── */
+.mqtt-info-box {
+  background:var(--accent-dim); border:1px solid var(--border-h); border-radius:10px;
+  padding:10px 14px; margin-bottom:14px; font-size:.78rem; color:var(--accent); line-height:1.6;
+}
+.cfg-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+@media (max-width:500px) { .cfg-grid { grid-template-columns:1fr; } }
 </style>
 </head>
 <body>
 
-<!-- ════════════════════════════════
-     AUTH OVERLAY (multi-step)
-     Step 1 → Email + Senha
-     Step 2 → Credenciais MQTT (SEMPRE digitar)
-════════════════════════════════ -->
+<!-- ═══════════════════════════════════
+     AUTH OVERLAY — LOGIN FIXO
+     Login: admin  |  Senha: 2026projeto
+═══════════════════════════════════ -->
 <div class="auth-overlay" id="authOverlay">
   <div class="auth-box">
     <div class="auth-brand">
       <div class="auth-icon">🌡️</div>
-      <h2 id="authTitle">Bem-vindo</h2>
-      <p id="authSubtitle">Faça login para continuar</p>
+      <h2>AmbientWatch</h2>
+      <p>Faça login para acessar o painel</p>
     </div>
 
     <div class="auth-error" id="authError"></div>
 
-    <!-- ── STEP 1: email + senha ── -->
-    <div class="auth-step active" id="authStep1">
-      <div class="auth-field">
-        <label>E-mail</label>
-        <input id="authEmail" type="email" placeholder="seu@email.com" autocomplete="email">
-      </div>
-      <div class="auth-field">
-        <label>Senha</label>
-        <input id="authPass" type="password" placeholder="Mínimo 8 caracteres" autocomplete="current-password">
-      </div>
-      <div class="auth-field" id="authPassConfirmWrap" style="display:none">
-        <label>Confirmar Senha</label>
-        <input id="authPassConfirm" type="password" placeholder="Repita a senha" autocomplete="new-password">
-      </div>
-      <button class="auth-btn" id="authBtnStep1">Entrar →</button>
-      <div class="auth-footer" id="authFooter"></div>
+    <div class="auth-field">
+      <label>Login</label>
+      <input id="authUser" type="text" placeholder="admin" autocomplete="username">
     </div>
+    <div class="auth-field">
+      <label>Senha</label>
+      <input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <button class="auth-btn" id="authBtn">Entrar →</button>
+
+    <p style="text-align:center;font-size:.72rem;color:var(--text-3);margin-top:14px">
+      Acesso restrito ao administrador do sistema
+    </p>
   </div>
 </div>
 
@@ -486,41 +468,51 @@ header {
     </div>
   </header>
 
-  <!-- MQTT CONFIG (collapsible — para reconectar sem sair) -->
-  <div class="mqtt-cfg-section" id="mqttCfgSection" style="display:none">
-    <div class="mqtt-cfg-head" id="mqttCfgHead">
-      <h3>⚙️ Reconectar MQTT</h3>
-      <svg id="cfgChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="transition:transform .2s"><polyline points="6 9 12 15 18 9"/></svg>
-    </div>
-    <div class="mqtt-cfg-body" id="mqttCfgBody">
-      <div class="cfg-grid">
-        <div class="form-group">
-          <label>Broker (host)</label>
-          <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud" autocomplete="off">
-        </div>
-        <div class="form-group">
-          <label>Porta</label>
-          <input id="cfgPort" type="number" value="8884" placeholder="8884">
-        </div>
-        <div class="form-group">
-          <label>Usuário</label>
-          <input id="cfgUser" type="text" placeholder="seu-usuario" autocomplete="off">
-        </div>
-        <div class="form-group">
-          <label>Senha</label>
-          <input id="cfgPass" type="password" placeholder="••••••••" autocomplete="off">
-        </div>
-      </div>
-      <button class="btn-primary" id="btnConnect" style="width:100%;margin-top:4px">Conectar ao MQTT</button>
-    </div>
-  </div>
-
   <!-- ROOMS GRID -->
   <div class="rooms-grid" id="roomsGrid">
     <div class="add-card" id="addCardPlaceholder">
       <div class="add-icon">+</div>
       <span>Adicionar ambiente</span>
       <small style="font-size:.75rem;color:var(--text-3)">Clique para monitorar um novo local</small>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════
+     MODAL CONFIGURAR MQTT
+     Só abre após confirmação de senha
+══════════════════════════════════ -->
+<div class="modal-overlay" id="mqttModal">
+  <div class="modal">
+    <h2>⚙️ Configuração MQTT</h2>
+    <p>Digite as credenciais do seu broker MQTT. As configurações ficam salvas apenas nesta sessão.</p>
+
+    <div class="mqtt-info-box">
+      💡 As credenciais MQTT <strong>não são salvas</strong> permanentemente. Você precisará configurar novamente ao reabrir o painel.
+    </div>
+
+    <div class="form-group">
+      <label>Broker (host)</label>
+      <input id="cfgBroker" type="text" placeholder="xxxx.hivemq.cloud" autocomplete="off">
+    </div>
+    <div class="cfg-grid">
+      <div class="form-group">
+        <label>Usuário MQTT</label>
+        <input id="cfgUser" type="text" placeholder="usuario" autocomplete="off">
+      </div>
+      <div class="form-group">
+        <label>Porta</label>
+        <input id="cfgPort" type="number" value="8884" placeholder="8884">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Senha MQTT</label>
+      <input id="cfgPass" type="password" placeholder="••••••••" autocomplete="off">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-cancel" id="btnMqttCancel">Cancelar</button>
+      <button class="btn-primary" id="btnMqttConnect">Conectar ao MQTT</button>
     </div>
   </div>
 </div>
@@ -565,7 +557,7 @@ header {
   </div>
 </div>
 
-<!-- MODAL CONFIRMAÇÃO -->
+<!-- MODAL CONFIRMAÇÃO COM SENHA -->
 <div class="confirm-overlay" id="confirmOverlay">
   <div class="confirm-box">
     <h3 id="confirmTitle">Confirmar ação</h3>
@@ -573,7 +565,7 @@ header {
     <div class="confirm-error" id="confirmError"></div>
     <div class="confirm-field">
       <label>Senha</label>
-      <input id="confirmPass" type="password" placeholder="Sua senha" autocomplete="current-password">
+      <input id="confirmPass" type="password" placeholder="2026projeto" autocomplete="current-password">
     </div>
     <div class="confirm-actions">
       <button class="confirm-cancel" id="confirmCancel">Cancelar</button>
@@ -587,15 +579,84 @@ header {
 
 <script>
 /* ═════════════════════════════════════════
+   CREDENCIAIS FIXAS
+   Login: admin | Senha: 2026projeto
+═════════════════════════════════════════ */
+const FIXED_LOGIN = 'admin';
+const FIXED_PASS  = '2026projeto';
+
+/* ═════════════════════════════════════════
    STATE
 ═════════════════════════════════════════ */
 let mqttClient = null;
 let rooms = JSON.parse(localStorage.getItem('amb_rooms') || '[]');
 let selectedIcon = '🏠';
-const TIMEOUT_MS = 30000;
+const TIMEOUT_MS = 30000; // 30s sem dados → offline
 
-// Sessão MQTT em memória apenas — nunca persiste
-let _sessionMqtt = { broker:'', port:8884, user:'', pass:'' };
+// Credenciais MQTT ficam APENAS em memória — nunca no localStorage
+let _mqttCfg = { broker:'', port:8884, user:'', pass:'' };
+
+/* ═════════════════════════════════════════
+   SESSION
+═════════════════════════════════════════ */
+function isLoggedIn() { return sessionStorage.getItem('aw_session') === 'ok'; }
+function doLogin() {
+  sessionStorage.setItem('aw_session', 'ok');
+  document.getElementById('authOverlay').classList.add('hidden');
+  renderLogoutBtn();
+  // Abre MQTT automaticamente para o usuário configurar
+  setTimeout(() => openMqttModal(false), 400);
+}
+function doLogout() {
+  sessionStorage.removeItem('aw_session');
+  _mqttCfg = { broker:'', port:8884, user:'', pass:'' };
+  if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
+  setBadge('disconnected');
+  location.reload();
+}
+
+function renderLogoutBtn() {
+  const actions = document.getElementById('headerActions');
+  if (actions.querySelector('.btn-logout')) return;
+  const btn = document.createElement('button');
+  btn.className = 'btn-logout';
+  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Sair';
+  btn.onclick = doLogout;
+  actions.insertBefore(btn, actions.firstChild);
+}
+
+/* ─── LOGIN ─── */
+function initAuth() {
+  if (isLoggedIn()) {
+    document.getElementById('authOverlay').classList.add('hidden');
+    renderLogoutBtn();
+    // Sessão ativa mas sem credenciais MQTT em memória → abre painel MQTT
+    if (!_mqttCfg.broker) setTimeout(() => openMqttModal(false), 400);
+    return;
+  }
+  document.getElementById('authOverlay').classList.remove('hidden');
+}
+
+document.getElementById('authBtn').addEventListener('click', function() {
+  const user = document.getElementById('authUser').value.trim();
+  const pass = document.getElementById('authPass').value;
+  const err  = document.getElementById('authError');
+  err.classList.remove('show');
+
+  if (user !== FIXED_LOGIN || pass !== FIXED_PASS) {
+    err.textContent = 'Login ou senha incorretos.';
+    err.classList.add('show');
+    document.getElementById('authPass').value = '';
+    return;
+  }
+  doLogin();
+});
+
+['authUser','authPass'].forEach(id => {
+  document.getElementById(id).addEventListener('keydown', e => {
+    if (e.key === 'Enter') document.getElementById('authBtn').click();
+  });
+});
 
 /* ═════════════════════════════════════════
    UTILS
@@ -635,7 +696,7 @@ function calcCardSize() {
 function renderRooms() {
   const grid = document.getElementById('roomsGrid');
   grid.querySelectorAll('.room-card').forEach(c => c.remove());
-  // Reseta status ao renderizar — não confia no valor salvo no localStorage
+  // Ao renderizar, status volta para "waiting" — dados estáticos do localStorage não são confiáveis
   rooms.forEach(r => {
     if (r.status === 'online') r.status = 'waiting';
     if (r._timeout) { clearTimeout(r._timeout); r._timeout = null; }
@@ -652,19 +713,18 @@ function buildCard(room, idx) {
   el.className = `room-card ${room.status || 'waiting'}`;
   el.id = `card-${room.id}`;
 
-  const tempPct = room.temperature != null ? Math.min(100, Math.max(0, (room.temperature / 50) * 100)) : 0;
-  const humPct  = room.humidity    != null ? Math.min(100, room.humidity) : 0;
-  const tempVal = room.temperature != null ? room.temperature.toFixed(1) : '–';
-  const humVal  = room.humidity    != null ? room.humidity.toFixed(1)    : '–';
-  const statusText  = room.status === 'online' ? 'Online' : room.status === 'offline' ? 'Offline' : 'Aguardando';
-  const statusClass = room.status || 'waiting';
+  // Mostra "–" nos valores — não mostra dados velhos do localStorage como se fossem ao vivo
+  const tempVal = '–';
+  const humVal  = '–';
+  const statusText  = 'Aguardando';
+  const statusClass = 'waiting';
 
   el.innerHTML = `
     <div class="card-glow"></div>
     <div class="card-head">
       <div class="room-info">
         <div class="room-label">${room.label}</div>
-        <div class="room-topic" style="font-family:'DM Mono',monospace;font-size:.62rem;color:var(--text-3);margin-top:2px">ID: ${room.id}</div>
+        <div class="room-topic">ID: ${room.id}</div>
         <div class="status-chip ${statusClass}"><div class="sdot"></div> ${statusText}</div>
       </div>
       <div class="room-icon">${room.icon}</div>
@@ -676,7 +736,7 @@ function buildCard(room, idx) {
         <div class="metric-unit">graus Celsius</div>
         <div class="bar-wrap">
           <div class="bar-label"><span>0°C</span><span>50°C</span></div>
-          <div class="bar-track"><div class="bar-fill" id="tempbar-${room.id}" style="width:${tempPct}%"></div></div>
+          <div class="bar-track"><div class="bar-fill" id="tempbar-${room.id}" style="width:0%"></div></div>
         </div>
       </div>
       <div class="metric hum">
@@ -685,12 +745,12 @@ function buildCard(room, idx) {
         <div class="metric-unit">por cento</div>
         <div class="bar-wrap">
           <div class="bar-label"><span>0%</span><span>100%</span></div>
-          <div class="bar-track"><div class="bar-fill" id="humbar-${room.id}" style="width:${humPct}%"></div></div>
+          <div class="bar-track"><div class="bar-fill" id="humbar-${room.id}" style="width:0%"></div></div>
         </div>
       </div>
     </div>
     <div class="card-footer">
-      <div class="last-update" id="upd-${room.id}">${room.lastUpdate ? formatTime(room.lastUpdate) : 'Sem dados'}</div>
+      <div class="last-update" id="upd-${room.id}">Sem dados recebidos</div>
       <div class="card-actions">
         <button class="icon-btn del" title="Remover" onclick="removeRoom('${room.id}')">🗑</button>
       </div>
@@ -702,10 +762,23 @@ function buildCard(room, idx) {
 function updateCardData(roomId, data) {
   const room = rooms.find(r => r.id === roomId);
   if (!room) return;
-  if (data.temperature !== undefined) room.temperature = data.temperature;
-  if (data.humidity    !== undefined) room.humidity    = data.humidity;
-  room.status     = 'online';
-  room.lastUpdate = Date.now();
+
+  // Valida dados recebidos — rejeita valores impossíveis ou NaN
+  const temp = parseFloat(data.temperature);
+  const hum  = parseFloat(data.humidity);
+  if (isNaN(temp) || isNaN(hum)) {
+    console.warn(`[MQTT] Dados inválidos para ${roomId}:`, data);
+    return;
+  }
+  if (temp < -40 || temp > 85 || hum < 0 || hum > 100) {
+    console.warn(`[MQTT] Valores fora do range para ${roomId}: temp=${temp} hum=${hum}`);
+    return;
+  }
+
+  room.temperature = temp;
+  room.humidity    = hum;
+  room.status      = 'online';
+  room.lastUpdate  = Date.now();
 
   if (room._timeout) clearTimeout(room._timeout);
   room._timeout = setTimeout(() => setOffline(room.id), TIMEOUT_MS);
@@ -715,16 +788,20 @@ function updateCardData(roomId, data) {
     card.className = 'room-card online';
     const chip = card.querySelector('.status-chip');
     if (chip) { chip.className = 'status-chip online'; chip.innerHTML = '<div class="sdot"></div> Online'; }
-    const tv = document.getElementById(`temp-${roomId}`);
-    const hv = document.getElementById(`hum-${roomId}`);
-    const tb = document.getElementById(`tempbar-${roomId}`);
-    const hb = document.getElementById(`humbar-${roomId}`);
+    const tv  = document.getElementById(`temp-${roomId}`);
+    const hv  = document.getElementById(`hum-${roomId}`);
+    const tb  = document.getElementById(`tempbar-${roomId}`);
+    const hb  = document.getElementById(`humbar-${roomId}`);
     const upd = document.getElementById(`upd-${roomId}`);
-    if (tv) tv.textContent = room.temperature.toFixed(1);
-    if (hv) hv.textContent = room.humidity.toFixed(1);
-    if (tb) tb.style.width = Math.min(100, Math.max(0, (room.temperature / 50) * 100)) + '%';
-    if (hb) hb.style.width = Math.min(100, room.humidity) + '%';
-    if (upd) upd.textContent = formatTime(room.lastUpdate);
+    if (tv)  tv.textContent  = temp.toFixed(1);
+    if (hv)  hv.textContent  = hum.toFixed(1);
+    if (tb)  tb.style.width  = Math.min(100, Math.max(0, (temp / 50) * 100)) + '%';
+    if (hb)  hb.style.width  = Math.min(100, hum) + '%';
+    if (upd) {
+      upd.textContent = formatTime(room.lastUpdate);
+      upd.classList.add('fresh');
+      setTimeout(() => upd.classList.remove('fresh'), 3000);
+    }
   }
   saveRooms();
 }
@@ -738,18 +815,19 @@ function setOffline(roomId) {
     card.className = 'room-card offline';
     const chip = card.querySelector('.status-chip');
     if (chip) { chip.className = 'status-chip offline'; chip.innerHTML = '<div class="sdot"></div> Offline'; }
+    const upd = document.getElementById(`upd-${roomId}`);
+    if (upd) upd.textContent = 'Sem dados (timeout 30s)';
   }
   saveRooms();
+  toast(`⚠️ ${room.label} ficou offline`, 'error', 5000);
 }
 
 function addRoom(label, id, icon) {
-  const existing = rooms.find(r => r.id === id);
-  if (existing) { toast('Ambiente com este ID já existe!', 'error'); return; }
+  if (rooms.find(r => r.id === id)) { toast('Ambiente com este ID já existe!', 'error'); return; }
   const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null };
   rooms.push(room);
   saveRooms();
   renderRooms();
-  // Subscreve o novo tópico se conectado
   if (mqttClient && mqttClient.connected) {
     const topic = `sensors/${id}/data`;
     mqttClient.subscribe(topic, { qos:1 });
@@ -759,7 +837,8 @@ function addRoom(label, id, icon) {
 }
 
 function removeRoom(roomId) {
-  requireCredentials('🗑 Remover Ambiente', 'Digite sua senha para remover este ambiente.', true, () => {
+  requirePassword('🗑 Remover Ambiente', 'Digite sua senha para remover este ambiente.', true, () => {
+    const room = rooms.find(r => r.id === roomId);
     rooms = rooms.filter(r => r.id !== roomId);
     if (mqttClient && mqttClient.connected) mqttClient.unsubscribe(`sensors/${roomId}/data`);
     saveRooms();
@@ -774,53 +853,52 @@ function removeRoom(roomId) {
 function connectMQTT(broker, port, user, pass) {
   if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
 
-  // Salva credenciais na sessionStorage para reconexão automática
-  _sessionMqtt = { broker, port, user, pass };
-  localStorage.setItem('amb_mqtt_session', JSON.stringify(_sessionMqtt));
+  _mqttCfg = { broker, port, user, pass };
 
   const url = `wss://${broker}:${port}/mqtt`;
-  let clientId = localStorage.getItem('amb_client_id');
-  if (!clientId) {
-    clientId = 'dash_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem('amb_client_id', clientId);
-  }
+  let clientId = 'dash_' + Math.random().toString(36).substr(2, 9);
 
   setBadge('connecting');
   toast('Conectando ao MQTT...', 'info');
 
   mqttClient = mqtt.connect(url, {
-    clientId, username: user, password: pass,
-    clean: true,          // evita conflito de sessão duplicada no broker
+    clientId,
+    username: user,
+    password: pass,
+    clean: true,
     reconnectPeriod: 5000,
     connectTimeout: 15000,
-    keepalive: 30,        // ping a cada 30s — mantém conexão ativa
+    keepalive: 30,
   });
 
   mqttClient.on('connect', () => {
     setBadge('connected');
     toast('MQTT conectado!', 'success');
+    // Subscreve todos os tópicos configurados
     rooms.forEach(r => {
       const topic = `sensors/${r.id}/data`;
       mqttClient.subscribe(topic, { qos:1 }, err => {
         if (!err) console.log(`[MQTT] ✅ Subscrito: ${topic}`);
-        else console.error(`[MQTT] ❌ Erro: ${topic}`, err);
+        else console.error(`[MQTT] ❌ Erro ao subscrever: ${topic}`, err);
       });
     });
-    hideMqttCfg();
+    closeMqttModal();
   });
 
   mqttClient.on('error', err => { setBadge('error'); toast('Erro MQTT: ' + err.message, 'error'); });
   mqttClient.on('close', () => setBadge('disconnected'));
   mqttClient.on('offline', () => setBadge('disconnected'));
+
   mqttClient.on('message', (topic, message) => {
     try {
       const data = JSON.parse(message.toString());
-      const parts = topic.split('/');
+      console.log(`[MQTT] Mensagem recebida no tópico ${topic}:`, data);
+      const parts    = topic.split('/');
       const deviceId = parts[1];
-      const room = rooms.find(r => r.id === deviceId);
+      const room     = rooms.find(r => r.id === deviceId);
       if (room) updateCardData(room.id, data);
-      else console.warn(`[MQTT] Sem ambiente para id="${deviceId}"`);
-    } catch(e) { console.warn('[MQTT] Parse error', e); }
+      else console.warn(`[MQTT] Nenhum ambiente cadastrado para device_id="${deviceId}"`);
+    } catch(e) { console.warn('[MQTT] Erro ao parsear mensagem:', e); }
   });
 }
 
@@ -834,39 +912,38 @@ function setBadge(state) {
   else                          { label.textContent = 'Desconectado'; }
 }
 
-function showMqttCfg() {
-  const sec  = document.getElementById('mqttCfgSection');
-  const body = document.getElementById('mqttCfgBody');
-  sec.style.display = 'block';
-  body.classList.add('show');
-  document.getElementById('cfgChevron').style.transform = 'rotate(180deg)';
-  sec.scrollIntoView({ behavior:'smooth', block:'start' });
+/* ─── MODAL MQTT ─── */
+function openMqttModal(requirePass) {
+  if (requirePass) {
+    requirePassword('⚙️ Configurar MQTT', 'Confirme sua senha para alterar as configurações MQTT.', false, () => {
+      document.getElementById('cfgBroker').value = _mqttCfg.broker || '';
+      document.getElementById('cfgUser').value   = _mqttCfg.user   || '';
+      document.getElementById('cfgPort').value   = _mqttCfg.port   || 8884;
+      document.getElementById('cfgPass').value   = '';
+      document.getElementById('mqttModal').classList.add('open');
+    });
+  } else {
+    document.getElementById('cfgBroker').value = _mqttCfg.broker || '';
+    document.getElementById('cfgUser').value   = _mqttCfg.user   || '';
+    document.getElementById('cfgPort').value   = _mqttCfg.port   || 8884;
+    document.getElementById('cfgPass').value   = '';
+    document.getElementById('mqttModal').classList.add('open');
+  }
 }
-
-function hideMqttCfg() {
-  const sec  = document.getElementById('mqttCfgSection');
-  const body = document.getElementById('mqttCfgBody');
-  body.classList.remove('show');
-  document.getElementById('cfgChevron').style.transform = '';
-  setTimeout(() => { if (!body.classList.contains('show')) sec.style.display = 'none'; }, 300);
-}
+function closeMqttModal() { document.getElementById('mqttModal').classList.remove('open'); }
 
 document.getElementById('btnMqttCfg').addEventListener('click', () => {
-  const sec = document.getElementById('mqttCfgSection');
-  if (sec.style.display === 'none' || !sec.style.display) showMqttCfg();
-  else hideMqttCfg();
+  if (!isLoggedIn()) return;
+  openMqttModal(true);
 });
-document.getElementById('mqttCfgHead').addEventListener('click', () => {
-  const body = document.getElementById('mqttCfgBody');
-  const chev = document.getElementById('cfgChevron');
-  body.classList.toggle('show');
-  chev.style.transform = body.classList.contains('show') ? 'rotate(180deg)' : '';
-});
-document.getElementById('btnConnect').addEventListener('click', () => {
-  const b = document.getElementById('cfgBroker').value.trim();
-  const p = parseInt(document.getElementById('cfgPort').value) || 8884;
-  const u = document.getElementById('cfgUser').value.trim();
-  const pw= document.getElementById('cfgPass').value;
+document.getElementById('btnMqttCancel').addEventListener('click', closeMqttModal);
+document.getElementById('mqttModal').addEventListener('click', e => { if (e.target === document.getElementById('mqttModal')) closeMqttModal(); });
+
+document.getElementById('btnMqttConnect').addEventListener('click', () => {
+  const b  = document.getElementById('cfgBroker').value.trim();
+  const p  = parseInt(document.getElementById('cfgPort').value) || 8884;
+  const u  = document.getElementById('cfgUser').value.trim();
+  const pw = document.getElementById('cfgPass').value;
   if (!b || !u || !pw) { toast('Preencha todos os campos MQTT!', 'error'); return; }
   connectMQTT(b, p, u, pw);
 });
@@ -874,24 +951,24 @@ document.getElementById('btnConnect').addEventListener('click', () => {
 /* ═════════════════════════════════════════
    MODAL ADICIONAR AMBIENTE
 ═════════════════════════════════════════ */
-function openModal() {
+function openAddModal() {
   document.getElementById('addModal').classList.add('open');
   document.getElementById('mLabel').focus();
 }
 function closeModal() {
   document.getElementById('addModal').classList.remove('open');
-  document.getElementById('mLabel').value = '';
-  document.getElementById('mTopic').value = '';
+  document.getElementById('mLabel').value  = '';
+  document.getElementById('mTopic').value  = '';
   document.getElementById('topicPreview').textContent = '...';
 }
 
-document.getElementById('btnAddRoom').addEventListener('click', function() {
-  if (!window.isLoggedIn || !window.isLoggedIn()) { document.getElementById('authOverlay').classList.remove('hidden'); return; }
-  requireCredentials('🔒 Adicionar Ambiente', 'Confirme sua senha para adicionar um ambiente.', false, openModal);
+document.getElementById('btnAddRoom').addEventListener('click', () => {
+  if (!isLoggedIn()) return;
+  requirePassword('🔒 Adicionar Ambiente', 'Confirme sua senha para adicionar um ambiente.', false, openAddModal);
 });
-document.getElementById('addCardPlaceholder').addEventListener('click', function() {
-  if (!window.isLoggedIn || !window.isLoggedIn()) { document.getElementById('authOverlay').classList.remove('hidden'); return; }
-  requireCredentials('🔒 Adicionar Ambiente', 'Confirme sua senha para adicionar um ambiente.', false, openModal);
+document.getElementById('addCardPlaceholder').addEventListener('click', () => {
+  if (!isLoggedIn()) return;
+  requirePassword('🔒 Adicionar Ambiente', 'Confirme sua senha para adicionar um ambiente.', false, openAddModal);
 });
 document.getElementById('btnCancelModal').addEventListener('click', closeModal);
 document.getElementById('addModal').addEventListener('click', e => { if (e.target === document.getElementById('addModal')) closeModal(); });
@@ -918,240 +995,62 @@ document.getElementById('btnSaveRoom').addEventListener('click', () => {
 });
 
 /* ═════════════════════════════════════════
+   CONFIRMAÇÃO COM SENHA (senha fixa)
+═════════════════════════════════════════ */
+let _pendingCb = null;
+
+function requirePassword(title, desc, isDanger, callback) {
+  _pendingCb = callback;
+  document.getElementById('confirmTitle').textContent = title;
+  document.getElementById('confirmDesc').textContent  = desc;
+  document.getElementById('confirmPass').value = '';
+  document.getElementById('confirmError').classList.remove('show');
+  const okBtn = document.getElementById('confirmOk');
+  okBtn.className = 'confirm-ok' + (isDanger ? ' danger' : '');
+  okBtn.textContent = isDanger ? '⚠️ Confirmar' : '✓ Confirmar';
+  document.getElementById('confirmOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('confirmPass').focus(), 100);
+}
+
+function closeConfirm() {
+  document.getElementById('confirmOverlay').classList.remove('open');
+  _pendingCb = null;
+}
+
+document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
+document.getElementById('confirmOverlay').addEventListener('click', function(e) { if (e.target === this) closeConfirm(); });
+
+document.getElementById('confirmOk').addEventListener('click', function() {
+  const pass = document.getElementById('confirmPass').value;
+  const err  = document.getElementById('confirmError');
+  err.classList.remove('show');
+
+  if (!pass) { err.textContent = 'Digite sua senha.'; err.classList.add('show'); return; }
+  if (pass !== FIXED_PASS) {
+    err.textContent = 'Senha incorreta.';
+    err.classList.add('show');
+    document.getElementById('confirmPass').value = '';
+    document.getElementById('confirmPass').focus();
+    return;
+  }
+
+  const fn = _pendingCb;
+  closeConfirm();
+  if (fn) fn();
+});
+
+document.getElementById('confirmPass').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') document.getElementById('confirmOk').click();
+});
+
+/* ═════════════════════════════════════════
    INIT
 ═════════════════════════════════════════ */
 window.removeRoom = removeRoom;
+
 renderRooms();
 window.addEventListener('resize', calcCardSize);
-
-rooms.forEach(room => {
-  if (room.status === 'online' && room.lastUpdate) {
-    const elapsed = Date.now() - room.lastUpdate;
-    const remaining = TIMEOUT_MS - elapsed;
-    if (remaining > 0) room._timeout = setTimeout(() => setOffline(room.id), remaining);
-    else room.status = 'offline';
-  }
-});
-
-
-/* ═════════════════════════════════════════
-   AUTH SYSTEM
-   - Cadastro e login por e-mail + senha
-   - Senha mínimo 8 chars com hash SHA-256 (via SubtleCrypto)
-   - Credenciais MQTT: SEMPRE digitadas, NUNCA salvas
-═════════════════════════════════════════ */
-(function() {
-  const STORAGE_KEY = 'amb_auth_v2';
-  const SESSION_KEY = 'amb_session_v2';
-
-  async function sha256(str) {
-    const buf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  }
-
-  function getAccount() {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  }
-
-  async function saveAccount(email, pass) {
-    const hash = await sha256(email.toLowerCase() + '|' + pass);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ email: email.toLowerCase(), hash }));
-  }
-
-  function isLoggedIn() { return sessionStorage.getItem(SESSION_KEY) === 'ok'; }
-
-  function login() {
-    sessionStorage.setItem(SESSION_KEY, 'ok');
-    document.getElementById('authOverlay').classList.add('hidden');
-    renderLogoutBtn();
-    // Tenta reconectar com credenciais da sessão anterior (mesma aba)
-    const saved = localStorage.getItem('amb_mqtt_session');
-    if (saved) {
-      try {
-        const m = JSON.parse(saved);
-        if (m.broker && m.user && m.pass) {
-          setTimeout(() => connectMQTT(m.broker, m.port || 8884, m.user, m.pass), 400);
-          return;
-        }
-      } catch(e) {}
-    }
-    // Sem credenciais — abre painel MQTT
-    setTimeout(() => showMqttCfg(), 400);
-  }
-
-  function logout() {
-    sessionStorage.removeItem(SESSION_KEY);
-    localStorage.removeItem('amb_mqtt_session');
-    _sessionMqtt = { broker:'', port:8884, user:'', pass:'' };
-    if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
-    location.reload();
-  }
-
-  function renderLogoutBtn() {
-    const actions = document.getElementById('headerActions');
-    if (!actions.querySelector('.btn-logout')) {
-      const btn = document.createElement('button');
-      btn.className = 'btn-logout';
-      btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Sair';
-      btn.onclick = logout;
-      actions.insertBefore(btn, actions.firstChild);
-    }
-  }
-
-  function showErr(msg) {
-    const el = document.getElementById('authError');
-    el.textContent = msg; el.classList.add('show');
-  }
-  function hideErr() { document.getElementById('authError').classList.remove('show'); }
-
-  function isEmail(v) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v); }
-
-  let isRegisterMode = false;
-
-  function init() {
-    const account = getAccount();
-    isRegisterMode = !account;
-
-    if (isRegisterMode) {
-      document.getElementById('authTitle').textContent = 'Criar Conta';
-      document.getElementById('authSubtitle').textContent = 'Configure seu acesso';
-      document.getElementById('authBtnStep1').textContent = 'Criar Conta →';
-      document.getElementById('authPassConfirmWrap').style.display = 'block';
-      document.getElementById('authFooter').textContent = 'Suas credenciais ficam salvas apenas neste navegador.';
-    } else {
-      document.getElementById('authTitle').textContent = 'Bem-vindo';
-      document.getElementById('authSubtitle').textContent = 'Faça login para continuar';
-      document.getElementById('authBtnStep1').textContent = 'Entrar →';
-      document.getElementById('authPassConfirmWrap').style.display = 'none';
-    }
-
-    if (isLoggedIn() && !isRegisterMode) {
-      // Sessão ativa — entra direto
-      document.getElementById('authOverlay').classList.add('hidden');
-      renderLogoutBtn();
-      // Tenta reconectar automaticamente com credenciais salvas na sessão
-      const saved = localStorage.getItem('amb_mqtt_session');
-      if (saved) {
-        try {
-          const m = JSON.parse(saved);
-          if (m.broker && m.user && m.pass) {
-            setTimeout(() => connectMQTT(m.broker, m.port || 8884, m.user, m.pass), 400);
-            return;
-          }
-        } catch(e) {}
-      }
-      // Sem credenciais salvas — abre painel MQTT para o usuário preencher
-      setTimeout(() => showMqttCfg(), 400);
-      return;
-    }
-
-    document.getElementById('authOverlay').classList.remove('hidden');
-  }
-
-  // Validar email+senha e entrar
-  document.getElementById('authBtnStep1').addEventListener('click', async function() {
-    hideErr();
-    const email = document.getElementById('authEmail').value.trim();
-    const pass  = document.getElementById('authPass').value;
-
-    if (!isEmail(email)) { showErr('E-mail inválido.'); return; }
-    if (pass.length < 8)  { showErr('Senha deve ter ao menos 8 caracteres.'); return; }
-
-    if (isRegisterMode) {
-      const confirm = document.getElementById('authPassConfirm').value;
-      if (pass !== confirm) { showErr('As senhas não coincidem.'); return; }
-      await saveAccount(email, pass);
-      toast('Conta criada!', 'success');
-    } else {
-      const account = getAccount();
-      const hash = await sha256(email.toLowerCase() + '|' + pass);
-      if (email.toLowerCase() !== account.email || hash !== account.hash) {
-        showErr('E-mail ou senha incorretos.'); return;
-      }
-    }
-    login();
-  });
-
-  // Enter
-  ['authEmail','authPass','authPassConfirm'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) el.addEventListener('keydown', e => { if (e.key==='Enter') document.getElementById('authBtnStep1').click(); });
-  });
-
-  window.isLoggedIn = isLoggedIn;
-  window.authLogout = logout;
-
-  document.addEventListener('DOMContentLoaded', init);
-})();
-
-
-/* ═════════════════════════════════════════
-   CONFIRMAÇÃO COM SENHA
-   Simplificado: pede apenas senha (email já logado)
-═════════════════════════════════════════ */
-(function() {
-  let _pendingCallback = null;
-
-  async function sha256(str) {
-    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-  }
-
-  function getAccount() {
-    const raw = localStorage.getItem('amb_auth_v2');
-    return raw ? JSON.parse(raw) : null;
-  }
-
-  function showErr(msg) { const el=document.getElementById('confirmError'); el.textContent=msg; el.classList.add('show'); }
-  function hideErr()     { document.getElementById('confirmError').classList.remove('show'); }
-
-  window.requireCredentials = function(title, desc, isDanger, callback) {
-    _pendingCallback = callback;
-    document.getElementById('confirmTitle').textContent = title;
-    document.getElementById('confirmDesc').textContent  = desc;
-    document.getElementById('confirmPass').value = '';
-    hideErr();
-    const okBtn = document.getElementById('confirmOk');
-    okBtn.className = 'confirm-ok' + (isDanger ? ' danger' : '');
-    okBtn.textContent = isDanger ? '⚠️ Confirmar' : '✓ Confirmar';
-    document.getElementById('confirmOverlay').classList.add('open');
-    setTimeout(() => document.getElementById('confirmPass').focus(), 100);
-  };
-
-  function closeConfirm() {
-    document.getElementById('confirmOverlay').classList.remove('open');
-    _pendingCallback = null;
-  }
-
-  document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
-  document.getElementById('confirmOverlay').addEventListener('click', function(e) { if (e.target===this) closeConfirm(); });
-
-  document.getElementById('confirmOk').addEventListener('click', async function() {
-    hideErr();
-    const pass = document.getElementById('confirmPass').value;
-    if (!pass) { showErr('Digite sua senha.'); return; }
-
-    const account = getAccount();
-    if (!account) { showErr('Nenhuma conta encontrada.'); return; }
-
-    const hash = await sha256(account.email + '|' + pass);
-    if (hash !== account.hash) {
-      showErr('Senha incorreta.');
-      document.getElementById('confirmPass').value = '';
-      document.getElementById('confirmPass').focus();
-      return;
-    }
-
-    const fn = _pendingCallback;
-    closeConfirm();
-    if (fn) fn();
-  });
-
-  document.getElementById('confirmPass').addEventListener('keydown', function(e) {
-    if (e.key==='Enter') document.getElementById('confirmOk').click();
-  });
-})();
+initAuth();
 </script>
 </body>
 </html>
