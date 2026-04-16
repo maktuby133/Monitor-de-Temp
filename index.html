@@ -317,56 +317,7 @@ header {
   .header-actions { width:100%; justify-content:flex-end; }
 }
 
-/* ═══════════════════════════════════════════
-   AUTH OVERLAY — LOGIN FIXO
-═══════════════════════════════════════════ */
-.auth-overlay {
-  position:fixed; inset:0; background:var(--bg); z-index:999;
-  display:flex; align-items:center; justify-content:center; padding:20px;
-}
-.auth-overlay.hidden { display:none; }
 
-.auth-box {
-  background:var(--surface); border:1px solid var(--border-h); border-radius:20px;
-  padding:36px 32px; width:100%; max-width:380px;
-  box-shadow:0 32px 64px rgba(0,0,0,.7); animation:cardIn .4s ease both;
-}
-.auth-brand { text-align:center; margin-bottom:28px; }
-.auth-brand .auth-icon { font-size:2.5rem; margin-bottom:10px; }
-.auth-brand h2 { font-family:'Syne',sans-serif; font-size:1.3rem; font-weight:800; color:var(--text-1); }
-.auth-brand p  { font-size:.8rem; color:var(--text-3); margin-top:4px; }
-
-.auth-field { margin-bottom:14px; }
-.auth-field label { display:block; font-size:.7rem; font-weight:600; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:6px; }
-.auth-field input {
-  width:100%; background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm);
-  padding:10px 14px; color:var(--text-1); font-family:'DM Sans',sans-serif; font-size:.9rem;
-  outline:none; transition:border .2s, box-shadow .2s;
-}
-.auth-field input:focus { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-dim); }
-
-.auth-btn {
-  width:100%; margin-top:10px; padding:12px; border-radius:var(--radius-sm);
-  border:1px solid var(--accent); background:var(--accent-dim); color:var(--accent);
-  font-family:'Syne',sans-serif; font-size:.95rem; font-weight:700; cursor:pointer; transition:all .2s;
-}
-.auth-btn:hover { background:rgba(56,189,248,.3); box-shadow:0 0 20px var(--accent-glow); }
-.auth-btn:disabled { opacity:.5; cursor:not-allowed; }
-
-.auth-error {
-  background:rgba(248,113,113,.08); border:1px solid rgba(248,113,113,.3); border-radius:8px;
-  color:var(--red); font-size:.8rem; padding:9px 12px; margin-bottom:14px; display:none; text-align:center;
-}
-.auth-error.show { display:block; }
-
-/* Logout btn */
-.btn-logout {
-  display:flex; align-items:center; gap:6px;
-  padding:8px 14px; border-radius:var(--radius-sm);
-  border:1px solid rgba(248,113,113,.3); background:rgba(248,113,113,.08); color:var(--red);
-  font-family:'DM Sans',sans-serif; font-size:.82rem; font-weight:500; cursor:pointer; transition:all .2s;
-}
-.btn-logout:hover { background:rgba(248,113,113,.15); border-color:rgba(248,113,113,.5); }
 
 /* ─── CONFIRM OVERLAY ─── */
 .confirm-overlay {
@@ -412,35 +363,7 @@ header {
 </head>
 <body>
 
-<!-- ═══════════════════════════════════
-     AUTH OVERLAY — LOGIN FIXO
-     Login: admin  |  Senha: 2026projeto
-═══════════════════════════════════ -->
-<div class="auth-overlay" id="authOverlay">
-  <div class="auth-box">
-    <div class="auth-brand">
-      <div class="auth-icon">🌡️</div>
-      <h2>AmbientWatch</h2>
-      <p>Faça login para acessar o painel</p>
-    </div>
-
-    <div class="auth-error" id="authError"></div>
-
-    <div class="auth-field">
-      <label>Login</label>
-      <input id="authUser" type="text" placeholder="admin" autocomplete="username">
-    </div>
-    <div class="auth-field">
-      <label>Senha</label>
-      <input id="authPass" type="password" placeholder="••••••••" autocomplete="current-password">
-    </div>
-    <button class="auth-btn" id="authBtn">Entrar →</button>
-
-    <p style="text-align:center;font-size:.72rem;color:var(--text-3);margin-top:14px">
-      Acesso restrito ao administrador do sistema
-    </p>
-  </div>
-</div>
+<!-- sem auth overlay global — acesso por device -->
 
 <!-- APP -->
 <div class="app">
@@ -536,6 +459,11 @@ header {
       <div style="font-size:.7rem;color:var(--text-3);margin-top:6px">Tópico MQTT: sensors/<strong id="topicPreview" style="color:var(--accent)">...</strong>/data</div>
     </div>
     <div class="form-group">
+      <label>Senha do Dispositivo</label>
+      <input id="mDevPass" type="password" placeholder="Senha definida no portal AP do ESP32">
+      <div style="font-size:.7rem;color:var(--text-3);margin-top:6px">🔑 A mesma senha que você criou ao configurar o ESP32 no modo AP</div>
+    </div>
+    <div class="form-group">
       <label>Ícone</label>
       <div class="icon-picker" id="iconPicker">
         <div class="icon-opt sel" data-icon="🏠">🏠</div>
@@ -565,7 +493,7 @@ header {
     <div class="confirm-error" id="confirmError"></div>
     <div class="confirm-field">
       <label>Senha</label>
-      <input id="confirmPass" type="password" placeholder="2026projeto" autocomplete="current-password">
+      <input id="confirmPass" type="password" placeholder="Senha do dispositivo" autocomplete="off">
     </div>
     <div class="confirm-actions">
       <button class="confirm-cancel" id="confirmCancel">Cancelar</button>
@@ -579,11 +507,12 @@ header {
 
 <script>
 /* ═════════════════════════════════════════
-   CREDENCIAIS FIXAS
-   Login: admin | Senha: 2026projeto
+   SHA-256 UTIL
 ═════════════════════════════════════════ */
-const FIXED_LOGIN = 'admin';
-const FIXED_PASS  = '2026projeto';
+async function sha256(msg) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
 
 /* ═════════════════════════════════════════
    STATE
@@ -596,72 +525,18 @@ const TIMEOUT_MS = 30000; // 30s sem dados → offline
 // Credenciais MQTT ficam APENAS em memória — nunca no localStorage
 let _mqttCfg = { broker:'', port:8884, user:'', pass:'' };
 
-/* ═════════════════════════════════════════
-   SESSION
-═════════════════════════════════════════ */
-function isLoggedIn() { return sessionStorage.getItem('aw_session') === 'ok'; }
-function doLogin() {
-  sessionStorage.setItem('aw_session', 'ok');
-  document.getElementById('authOverlay').classList.add('hidden');
-  renderLogoutBtn();
-  // Abre MQTT automaticamente para o usuário configurar
-  setTimeout(() => openMqttModal(false), 400);
-}
-function doLogout() {
-  sessionStorage.removeItem('aw_session');
-  _mqttCfg = { broker:'', port:8884, user:'', pass:'' };
-  if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
-  setBadge('disconnected');
-  location.reload();
-}
-
-function renderLogoutBtn() {
-  const actions = document.getElementById('headerActions');
-  if (actions.querySelector('.btn-logout')) return;
-  const btn = document.createElement('button');
-  btn.className = 'btn-logout';
-  btn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg> Sair';
-  btn.onclick = doLogout;
-  actions.insertBefore(btn, actions.firstChild);
-}
-
-/* ─── LOGIN ─── */
-function initAuth() {
-  if (isLoggedIn()) {
-    document.getElementById('authOverlay').classList.add('hidden');
-    renderLogoutBtn();
-    // Sessão ativa mas sem credenciais MQTT em memória → abre painel MQTT
-    if (!_mqttCfg.broker) setTimeout(() => openMqttModal(false), 400);
-    return;
-  }
-  document.getElementById('authOverlay').classList.remove('hidden');
-}
-
-document.getElementById('authBtn').addEventListener('click', function() {
-  const user = document.getElementById('authUser').value.trim();
-  const pass = document.getElementById('authPass').value;
-  const err  = document.getElementById('authError');
-  err.classList.remove('show');
-
-  if (user !== FIXED_LOGIN || pass !== FIXED_PASS) {
-    err.textContent = 'Login ou senha incorretos.';
-    err.classList.add('show');
-    document.getElementById('authPass').value = '';
-    return;
-  }
-  doLogin();
-});
-
-['authUser','authPass'].forEach(id => {
-  document.getElementById(id).addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('authBtn').click();
-  });
-});
+// Hashes aguardando validação ao adicionar device { deviceId → { hash, resolve } }
+const _pendingAuth = {};
 
 /* ═════════════════════════════════════════
    UTILS
 ═════════════════════════════════════════ */
 function saveRooms() { localStorage.setItem('amb_rooms', JSON.stringify(rooms)); }
+
+// Abre MQTT automaticamente se ainda não configurado
+function ensureMqtt() {
+  if (!_mqttCfg.broker) setTimeout(() => openMqttModal(false), 400);
+}
 
 function toast(msg, type='info', dur=3500) {
   const w = document.getElementById('toastWrap');
@@ -822,9 +697,9 @@ function setOffline(roomId) {
   toast(`⚠️ ${room.label} ficou offline`, 'error', 5000);
 }
 
-function addRoom(label, id, icon) {
+function addRoom(label, id, icon, passHash) {
   if (rooms.find(r => r.id === id)) { toast('Ambiente com este ID já existe!', 'error'); return; }
-  const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null };
+  const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null, passHash };
   rooms.push(room);
   saveRooms();
   renderRooms();
@@ -837,8 +712,8 @@ function addRoom(label, id, icon) {
 }
 
 function removeRoom(roomId) {
-  requirePassword('🗑 Remover Ambiente', 'Digite sua senha para remover este ambiente.', true, () => {
-    const room = rooms.find(r => r.id === roomId);
+  const room = rooms.find(r => r.id === roomId);
+  requireDevicePassword(room, '🗑 Remover Ambiente', 'Digite a senha deste dispositivo para removê-lo.', true, () => {
     rooms = rooms.filter(r => r.id !== roomId);
     if (mqttClient && mqttClient.connected) mqttClient.unsubscribe(`sensors/${roomId}/data`);
     saveRooms();
@@ -874,12 +749,14 @@ function connectMQTT(broker, port, user, pass) {
   mqttClient.on('connect', () => {
     setBadge('connected');
     toast('MQTT conectado!', 'success');
-    // Subscreve todos os tópicos configurados
+    // Subscreve tópicos de dados e auth de todos os devices
     rooms.forEach(r => {
-      const topic = `sensors/${r.id}/data`;
-      mqttClient.subscribe(topic, { qos:1 }, err => {
-        if (!err) console.log(`[MQTT] ✅ Subscrito: ${topic}`);
-        else console.error(`[MQTT] ❌ Erro ao subscrever: ${topic}`, err);
+      mqttClient.subscribe(`sensors/${r.id}/data`, { qos:1 }, err => {
+        if (!err) console.log(`[MQTT] ✅ Subscrito: sensors/${r.id}/data`);
+        else console.error(`[MQTT] ❌ Erro ao subscrever dados: ${r.id}`, err);
+      });
+      mqttClient.subscribe(`sensors/${r.id}/auth`, { qos:1 }, err => {
+        if (!err) console.log(`[MQTT] ✅ Subscrito: sensors/${r.id}/auth`);
       });
     });
     closeMqttModal();
@@ -892,10 +769,23 @@ function connectMQTT(broker, port, user, pass) {
   mqttClient.on('message', (topic, message) => {
     try {
       const data = JSON.parse(message.toString());
-      console.log(`[MQTT] Mensagem recebida no tópico ${topic}:`, data);
       const parts    = topic.split('/');
       const deviceId = parts[1];
-      const room     = rooms.find(r => r.id === deviceId);
+      const msgType  = parts[2];  // 'data' ou 'auth'
+
+      if (msgType === 'auth') {
+        // Atualiza hash do device a partir do tópico retained
+        const room = rooms.find(r => r.id === deviceId);
+        if (room && data.hash) {
+          room.passHash = data.hash;
+          saveRooms();
+          console.log(`[AUTH] Hash atualizado para ${deviceId}`);
+        }
+        return;
+      }
+
+      // msgType === 'data'
+      const room = rooms.find(r => r.id === deviceId);
       if (room) updateCardData(room.id, data);
       else console.warn(`[MQTT] Nenhum ambiente cadastrado para device_id="${deviceId}"`);
     } catch(e) { console.warn('[MQTT] Erro ao parsear mensagem:', e); }
@@ -933,8 +823,7 @@ function openMqttModal(requirePass) {
 function closeMqttModal() { document.getElementById('mqttModal').classList.remove('open'); }
 
 document.getElementById('btnMqttCfg').addEventListener('click', () => {
-  if (!isLoggedIn()) return;
-  openMqttModal(true);
+  openMqttModal(false);
 });
 document.getElementById('btnMqttCancel').addEventListener('click', closeMqttModal);
 document.getElementById('mqttModal').addEventListener('click', e => { if (e.target === document.getElementById('mqttModal')) closeMqttModal(); });
@@ -957,19 +846,14 @@ function openAddModal() {
 }
 function closeModal() {
   document.getElementById('addModal').classList.remove('open');
-  document.getElementById('mLabel').value  = '';
-  document.getElementById('mTopic').value  = '';
+  document.getElementById('mLabel').value   = '';
+  document.getElementById('mTopic').value   = '';
+  document.getElementById('mDevPass').value = '';
   document.getElementById('topicPreview').textContent = '...';
 }
 
-document.getElementById('btnAddRoom').addEventListener('click', () => {
-  if (!isLoggedIn()) return;
-  requirePassword('🔒 Adicionar Ambiente', 'Confirme sua senha para adicionar um ambiente.', false, openAddModal);
-});
-document.getElementById('addCardPlaceholder').addEventListener('click', () => {
-  if (!isLoggedIn()) return;
-  requirePassword('🔒 Adicionar Ambiente', 'Confirme sua senha para adicionar um ambiente.', false, openAddModal);
-});
+document.getElementById('btnAddRoom').addEventListener('click', () => openAddModal());
+document.getElementById('addCardPlaceholder').addEventListener('click', () => openAddModal());
 document.getElementById('btnCancelModal').addEventListener('click', closeModal);
 document.getElementById('addModal').addEventListener('click', e => { if (e.target === document.getElementById('addModal')) closeModal(); });
 
@@ -986,21 +870,57 @@ document.getElementById('iconPicker').addEventListener('click', e => {
   selectedIcon = opt.dataset.icon;
 });
 
-document.getElementById('btnSaveRoom').addEventListener('click', () => {
-  const label = document.getElementById('mLabel').value.trim();
-  const rawId = document.getElementById('mTopic').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
-  if (!label || !rawId) { toast('Preencha todos os campos!', 'error'); return; }
-  addRoom(label, rawId, selectedIcon);
+document.getElementById('btnSaveRoom').addEventListener('click', async () => {
+  const label   = document.getElementById('mLabel').value.trim();
+  const rawId   = document.getElementById('mTopic').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  const rawPass = document.getElementById('mDevPass').value;
+  if (!label || !rawId) { toast('Preencha nome e Device ID!', 'error'); return; }
+  if (!rawPass) { toast('Digite a senha do dispositivo!', 'error'); return; }
+
+  const passHash = await sha256(rawId + '|' + rawPass);
+
+  // Verifica contra hash recebido via MQTT (se disponível)
+  const existing = rooms.find(r => r.id === rawId);
+  if (!existing && mqttClient && mqttClient.connected) {
+    // Subscreve auth topic para receber hash retained antes de confirmar
+    // (hash chega em ~ms pois é retained)
+    toast('Verificando credenciais...', 'info', 2000);
+    let verified = false;
+    await new Promise(resolve => {
+      const handler = (topic, message) => {
+        if (topic === `sensors/${rawId}/auth`) {
+          try {
+            const d = JSON.parse(message.toString());
+            if (d.hash === passHash) verified = true;
+          } catch(e) {}
+          mqttClient.removeListener('message', handler);
+          resolve();
+        }
+      };
+      mqttClient.on('message', handler);
+      mqttClient.subscribe(`sensors/${rawId}/auth`, { qos:1 });
+      setTimeout(() => { mqttClient.removeListener('message', handler); resolve(); }, 3000);
+    });
+    if (!verified) {
+      toast('Senha incorreta ou device ID inválido!', 'error', 4000);
+      return;
+    }
+  }
+
+  addRoom(label, rawId, selectedIcon, passHash);
   closeModal();
 });
 
 /* ═════════════════════════════════════════
-   CONFIRMAÇÃO COM SENHA (senha fixa)
+   CONFIRMAÇÃO COM SENHA — POR DEVICE
 ═════════════════════════════════════════ */
-let _pendingCb = null;
+let _pendingCb  = null;
+let _pendingHash = null;  // hash esperado para o device em questão
 
-function requirePassword(title, desc, isDanger, callback) {
-  _pendingCb = callback;
+// Confirma com senha de um device específico
+function requireDevicePassword(room, title, desc, isDanger, callback) {
+  _pendingCb   = callback;
+  _pendingHash = room ? room.passHash : null;
   document.getElementById('confirmTitle').textContent = title;
   document.getElementById('confirmDesc').textContent  = desc;
   document.getElementById('confirmPass').value = '';
@@ -1014,19 +934,33 @@ function requirePassword(title, desc, isDanger, callback) {
 
 function closeConfirm() {
   document.getElementById('confirmOverlay').classList.remove('open');
-  _pendingCb = null;
+  _pendingCb   = null;
+  _pendingHash = null;
 }
 
 document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
 document.getElementById('confirmOverlay').addEventListener('click', function(e) { if (e.target === this) closeConfirm(); });
 
-document.getElementById('confirmOk').addEventListener('click', function() {
+document.getElementById('confirmOk').addEventListener('click', async function() {
   const pass = document.getElementById('confirmPass').value;
   const err  = document.getElementById('confirmError');
   err.classList.remove('show');
 
-  if (!pass) { err.textContent = 'Digite sua senha.'; err.classList.add('show'); return; }
-  if (pass !== FIXED_PASS) {
+  if (!pass) { err.textContent = 'Digite a senha.'; err.classList.add('show'); return; }
+
+  // Se não há hash salvo localmente, tenta buscar do broker via tópico auth retained
+  if (!_pendingHash) {
+    err.textContent = 'Hash do device não encontrado. Reconecte o MQTT e tente novamente.';
+    err.classList.add('show');
+    return;
+  }
+
+  // Descobre o deviceId pelo hash armazenado
+  const room = rooms.find(r => r.passHash === _pendingHash);
+  const deviceId = room ? room.id : '';
+  const inputHash = await sha256(deviceId + '|' + pass);
+
+  if (inputHash !== _pendingHash) {
     err.textContent = 'Senha incorreta.';
     err.classList.add('show');
     document.getElementById('confirmPass').value = '';
@@ -1044,13 +978,25 @@ document.getElementById('confirmPass').addEventListener('keydown', function(e) {
 });
 
 /* ═════════════════════════════════════════
+   MQTT — SUBSCREVE TÓPICO AUTH (retained)
+   Atualiza hash do device quando chega msg
+═════════════════════════════════════════ */
+function subscribeAuthTopics() {
+  if (!mqttClient || !mqttClient.connected) return;
+  rooms.forEach(r => {
+    mqttClient.subscribe(`sensors/${r.id}/auth`, { qos:1 });
+  });
+}
+
+/* ═════════════════════════════════════════
    INIT
 ═════════════════════════════════════════ */
 window.removeRoom = removeRoom;
 
 renderRooms();
 window.addEventListener('resize', calcCardSize);
-initAuth();
+// Abre MQTT automaticamente na primeira carga
+ensureMqtt();
 </script>
 </body>
 </html>
