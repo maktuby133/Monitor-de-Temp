@@ -534,8 +534,20 @@ const _pendingAuth = {};
 function saveRooms() { localStorage.setItem('amb_rooms', JSON.stringify(rooms)); }
 
 // Abre MQTT automaticamente se ainda não configurado
+// Tenta reconectar com credenciais salvas no localStorage
 function ensureMqtt() {
-  if (!_mqttCfg.broker) setTimeout(() => openMqttModal(false), 400);
+  if (_mqttCfg.broker) return;
+  const saved = localStorage.getItem('amb_mqtt_cfg');
+  if (saved) {
+    try {
+      const m = JSON.parse(saved);
+      if (m.broker && m.user && m.pass) {
+        setTimeout(() => connectMQTT(m.broker, m.port || 8884, m.user, m.pass), 300);
+        return;
+      }
+    } catch(e) {}
+  }
+  setTimeout(() => openMqttModal(false), 400);
 }
 
 function toast(msg, type='info', dur=3500) {
@@ -729,6 +741,8 @@ function connectMQTT(broker, port, user, pass) {
   if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
 
   _mqttCfg = { broker, port, user, pass };
+  // Salva no localStorage para reconectar automaticamente
+  localStorage.setItem('amb_mqtt_cfg', JSON.stringify({ broker, port, user, pass }));
 
   const url = `wss://${broker}:${port}/mqtt`;
   let clientId = 'dash_' + Math.random().toString(36).substr(2, 9);
@@ -813,10 +827,11 @@ function openMqttModal(requirePass) {
       document.getElementById('mqttModal').classList.add('open');
     });
   } else {
-    document.getElementById('cfgBroker').value = _mqttCfg.broker || '';
-    document.getElementById('cfgUser').value   = _mqttCfg.user   || '';
-    document.getElementById('cfgPort').value   = _mqttCfg.port   || 8884;
-    document.getElementById('cfgPass').value   = '';
+    const _saved = (() => { try { return JSON.parse(localStorage.getItem('amb_mqtt_cfg') || '{}'); } catch(e) { return {}; } })();
+    document.getElementById('cfgBroker').value = _mqttCfg.broker || _saved.broker || '';
+    document.getElementById('cfgUser').value   = _mqttCfg.user   || _saved.user   || '';
+    document.getElementById('cfgPort').value   = _mqttCfg.port   || _saved.port   || 8884;
+    document.getElementById('cfgPass').value   = _mqttCfg.pass   || _saved.pass   || '';
     document.getElementById('mqttModal').classList.add('open');
   }
 }
