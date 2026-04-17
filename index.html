@@ -894,32 +894,9 @@ document.getElementById('btnSaveRoom').addEventListener('click', async () => {
 
   const passHash = await sha256(rawId + '|' + rawPass);
 
-  // Verifica contra hash recebido via MQTT (se disponível)
-  const existing = rooms.find(r => r.id === rawId);
-  if (!existing && mqttClient && mqttClient.connected) {
-    // Subscreve auth topic para receber hash retained antes de confirmar
-    // (hash chega em ~ms pois é retained)
-    toast('Verificando credenciais...', 'info', 2000);
-    let verified = false;
-    await new Promise(resolve => {
-      const handler = (topic, message) => {
-        if (topic === `sensors/${rawId}/auth`) {
-          try {
-            const d = JSON.parse(message.toString());
-            if (d.hash === passHash) verified = true;
-          } catch(e) {}
-          mqttClient.removeListener('message', handler);
-          resolve();
-        }
-      };
-      mqttClient.on('message', handler);
-      mqttClient.subscribe(`sensors/${rawId}/auth`, { qos:1 });
-      setTimeout(() => { mqttClient.removeListener('message', handler); resolve(); }, 3000);
-    });
-    if (!verified) {
-      toast('Senha incorreta ou device ID inválido!', 'error', 4000);
-      return;
-    }
+  // Subscreve o tópico auth para receber o hash retained quando o device publicar
+  if (mqttClient && mqttClient.connected) {
+    mqttClient.subscribe(`sensors/${rawId}/auth`, { qos:1 });
   }
 
   addRoom(label, rawId, selectedIcon, passHash);
