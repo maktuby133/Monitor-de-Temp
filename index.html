@@ -1048,6 +1048,7 @@ function requireDevicePassword(room, title, desc, isDanger, callback) {
   const okBtn = document.getElementById('confirmOk');
   okBtn.className = 'confirm-ok' + (isDanger ? ' danger' : '');
   okBtn.textContent = isDanger ? '⚠️ Confirmar' : '✓ Confirmar';
+  okBtn.disabled = false;  // garante reset mesmo se auth anterior ficou travado
   document.getElementById('confirmOverlay').classList.add('open');
   setTimeout(() => document.getElementById('confirmPass').focus(), 100);
 }
