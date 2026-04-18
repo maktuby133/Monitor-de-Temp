@@ -359,33 +359,6 @@ header {
 }
 .cfg-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 @media (max-width:500px) { .cfg-grid { grid-template-columns:1fr; } }
-
-/* ── DRAG & DROP ── */
-.room-card { cursor:grab; }
-.room-card:active { cursor:grabbing; }
-.room-card.dragging { opacity:.4; transform:scale(.97); }
-.room-card.drag-over { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent); }
-
-/* ── RENAME ── */
-.room-label-wrap { display:flex; align-items:center; gap:6px; }
-.rename-btn { background:none; border:none; color:var(--text-3); cursor:pointer; font-size:.75rem;
-  padding:2px 4px; border-radius:4px; opacity:0; transition:opacity .2s; line-height:1; }
-.card-head:hover .rename-btn { opacity:1; }
-.rename-btn:hover { color:var(--accent); }
-.rename-input { font-family:'Syne',sans-serif; font-weight:700; font-size:.9rem; color:var(--text-1);
-  background:var(--surface-2); border:1px solid var(--accent); border-radius:6px;
-  padding:2px 8px; outline:none; width:100%; }
-
-/* ── ALERTAS ── */
-.alert-badge { display:inline-flex; align-items:center; gap:4px; font-size:.62rem; font-weight:600;
-  padding:2px 7px; border-radius:999px; background:rgba(248,113,113,.15);
-  border:1px solid rgba(248,113,113,.35); color:var(--red); animation:alertPulse 1.2s ease infinite; }
-@keyframes alertPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-.alert-modal-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:end; }
-.alert-modal-row .form-group { margin-bottom:0; }
-.alert-section-label { font-size:.72rem; font-weight:700; color:var(--text-3); text-transform:uppercase;
-  letter-spacing:.07em; margin:16px 0 10px; display:flex; align-items:center; gap:8px; }
-.alert-section-label::before { content:''; flex:1; height:1px; background:var(--border); }
 </style>
 </head>
 <body>
@@ -399,7 +372,7 @@ header {
       <div class="brand-icon">🌡️</div>
       <div>
         <h1>AmbientWatch</h1>
-        <p>Monitoramento de temperatura e umidade</p>
+        <p>Monitoramento de temperatura e humidade</p>
       </div>
     </div>
     <div class="header-actions" id="headerActions">
@@ -414,10 +387,6 @@ header {
       <button class="btn" id="btnAddRoom">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Ambiente
-      </button>
-      <button class="btn" id="btnClearAll" title="Limpar todos os devices" style="border-color:rgba(248,113,113,.3);color:var(--red);background:rgba(248,113,113,.08)">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
-        Limpar
       </button>
     </div>
   </header>
@@ -536,29 +505,6 @@ header {
 <!-- TOASTS -->
 <div class="toast-wrap" id="toastWrap"></div>
 
-<!-- MODAL ALERTAS -->
-<div class="modal-overlay" id="alertModal">
-  <div class="modal">
-    <h2>🔔 Alertas — <span id="alertRoomLabel"></span></h2>
-    <p>Defina limites de temperatura e umidade. Quando ultrapassados, um alerta aparece no card.</p>
-    <div class="alert-section-label">Temperatura °C</div>
-    <div class="alert-modal-row">
-      <div class="form-group"><label>Mínima</label><input id="aMinTemp" type="number" step="0.5" placeholder="ex: 15"></div>
-      <div class="form-group"><label>Máxima</label><input id="aMaxTemp" type="number" step="0.5" placeholder="ex: 35"></div>
-    </div>
-    <div class="alert-section-label">Umidade %</div>
-    <div class="alert-modal-row">
-      <div class="form-group"><label>Mínima</label><input id="aMinHum" type="number" step="1" placeholder="ex: 30"></div>
-      <div class="form-group"><label>Máxima</label><input id="aMaxHum" type="number" step="1" placeholder="ex: 80"></div>
-    </div>
-    <div class="modal-actions" style="margin-top:24px">
-      <button class="btn-cancel" id="btnAlertCancel">Cancelar</button>
-      <button class="btn-primary" id="btnAlertClear" style="flex:1;border-color:rgba(248,113,113,.4);color:var(--red);background:rgba(248,113,113,.08)">🗑 Limpar</button>
-      <button class="btn-primary" id="btnAlertSave">✓ Salvar</button>
-    </div>
-  </div>
-</div>
-
 <script>
 /* ═════════════════════════════════════════
    SHA-256 UTIL
@@ -653,13 +599,6 @@ function buildCard(room, idx) {
   const el = document.createElement('div');
   el.className = `room-card ${room.status || 'waiting'}`;
   el.id = `card-${room.id}`;
-  el.draggable = true;
-  el.dataset.id = room.id;
-  el.addEventListener('dragstart', onDragStart);
-  el.addEventListener('dragover',  onDragOver);
-  el.addEventListener('dragleave', onDragLeave);
-  el.addEventListener('drop',      onDrop);
-  el.addEventListener('dragend',   onDragEnd);
 
   // Mostra "–" nos valores — não mostra dados velhos do localStorage como se fossem ao vivo
   const tempVal = '–';
@@ -671,13 +610,9 @@ function buildCard(room, idx) {
     <div class="card-glow"></div>
     <div class="card-head">
       <div class="room-info">
-        <div class="room-label-wrap">
-          <div class="room-label" id="lbl-${room.id}">${room.label}</div>
-          <button class="rename-btn" title="Renomear" onclick="startRename('${room.id}')">✏️</button>
-        </div>
+        <div class="room-label">${room.label}</div>
         <div class="room-topic">ID: ${room.id}</div>
         <div class="status-chip ${statusClass}"><div class="sdot"></div> ${statusText}</div>
-        <div class="alert-badge" id="alertbadge-${room.id}" style="display:none">⚠ Alerta</div>
       </div>
       <div class="room-icon">${room.icon}</div>
     </div>
@@ -692,7 +627,7 @@ function buildCard(room, idx) {
         </div>
       </div>
       <div class="metric hum">
-        <div class="metric-label">💧 Umidade</div>
+        <div class="metric-label">💧 Humidade</div>
         <div class="metric-value" id="hum-${room.id}">${humVal}</div>
         <div class="metric-unit">por cento</div>
         <div class="bar-wrap">
@@ -704,7 +639,6 @@ function buildCard(room, idx) {
     <div class="card-footer">
       <div class="last-update" id="upd-${room.id}">Sem dados recebidos</div>
       <div class="card-actions">
-        <button class="icon-btn" title="Alertas" onclick="openAlertModal('${room.id}')">🔔</button>
         <button class="icon-btn del" title="Remover" onclick="removeRoom('${room.id}')">🗑</button>
       </div>
     </div>
@@ -737,27 +671,6 @@ function updateCardData(roomId, data) {
   room._timeout = setTimeout(() => setOffline(room.id), TIMEOUT_MS);
 
   const card = document.getElementById(`card-${roomId}`);
-  // ── VERIFICA ALERTAS ──
-  if (room.alerts) {
-    const a = room.alerts;
-    const triggered = (a.minTemp !== null && temp < a.minTemp) ||
-                      (a.maxTemp !== null && temp > a.maxTemp) ||
-                      (a.minHum  !== null && hum  < a.minHum)  ||
-                      (a.maxHum  !== null && hum  > a.maxHum);
-    const badge = document.getElementById(`alertbadge-${roomId}`);
-    if (badge) badge.style.display = triggered ? 'inline-flex' : 'none';
-    if (triggered && !room._alerted) {
-      room._alerted = true;
-      let msgs = [];
-      if (a.minTemp !== null && temp < a.minTemp) msgs.push(`Temp baixa: ${temp.toFixed(1)}°C (mín ${a.minTemp}°C)`);
-      if (a.maxTemp !== null && temp > a.maxTemp) msgs.push(`Temp alta: ${temp.toFixed(1)}°C (máx ${a.maxTemp}°C)`);
-      if (a.minHum  !== null && hum  < a.minHum)  msgs.push(`Umidade baixa: ${hum.toFixed(1)}% (mín ${a.minHum}%)`);
-      if (a.maxHum  !== null && hum  > a.maxHum)  msgs.push(`Umidade alta: ${hum.toFixed(1)}% (máx ${a.maxHum}%)`);
-      toast(`⚠ ${room.label}: ${msgs.join(' | ')}`, 'error', 8000);
-    }
-    if (!triggered) room._alerted = false;
-  }
-
   if (card) {
     card.className = 'room-card online';
     const chip = card.querySelector('.status-chip');
@@ -797,14 +710,8 @@ function setOffline(roomId) {
 }
 
 function addRoom(label, id, icon, passHash) {
-  const existing = rooms.find(r => r.id === id);
-  if (existing) {
-    rooms = rooms.filter(r => r.id !== id);
-    if (mqttClient && mqttClient.connected) mqttClient.unsubscribe(`sensors/${id}/data`);
-    toast('Device já existia (oculto) — re-adicionado.', 'info');
-  }
-  const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null, passHash,
-    alerts: { minTemp:null, maxTemp:null, minHum:null, maxHum:null } };
+  if (rooms.find(r => r.id === id)) { toast('Ambiente com este ID já existe!', 'error'); return; }
+  const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null, passHash };
   rooms.push(room);
   saveRooms();
   renderRooms();
@@ -881,12 +788,12 @@ function connectMQTT(broker, port, user, pass) {
       const msgType  = parts[2];  // 'data' ou 'auth'
 
       if (msgType === 'auth') {
-        // Atualiza hash do device a partir do tópico retained
+        // Hash do ESP32 (mbedtls) é a fonte de verdade — sobrescreve sempre
         const room = rooms.find(r => r.id === deviceId);
         if (room && data.hash) {
           room.passHash = data.hash;
           saveRooms();
-          console.log(`[AUTH] Hash atualizado para ${deviceId}`);
+          console.log(`[AUTH] Hash sincronizado para ${deviceId}: ${data.hash.substring(0,8)}...`);
         }
         return;
       }
@@ -931,8 +838,7 @@ function openMqttModal(requirePass) {
 function closeMqttModal() { document.getElementById('mqttModal').classList.remove('open'); }
 
 document.getElementById('btnMqttCfg').addEventListener('click', () => {
-  if (rooms.length === 0) { openMqttModal(false); return; }
-  requireDevicePassword(rooms[0], '⚙️ Configurar MQTT', 'Confirme a senha de um device para alterar o MQTT.', false, () => openMqttModal(false));
+  openMqttModal(false);
 });
 document.getElementById('btnMqttCancel').addEventListener('click', closeMqttModal);
 document.getElementById('mqttModal').addEventListener('click', e => { if (e.target === document.getElementById('mqttModal')) closeMqttModal(); });
@@ -986,9 +892,10 @@ document.getElementById('btnSaveRoom').addEventListener('click', async () => {
   if (!label || !rawId) { toast('Preencha nome e Device ID!', 'error'); return; }
   if (!rawPass) { toast('Digite a senha do dispositivo!', 'error'); return; }
 
+  // Calcula hash igual ao ESP32: sha256(deviceId + "|" + senha)
   const passHash = await sha256(rawId + '|' + rawPass);
 
-  // Subscreve o tópico auth para receber o hash retained quando o device publicar
+  // Subscreve auth topic — quando ESP32 publicar, hash local será sobrescrito pelo hash do broker
   if (mqttClient && mqttClient.connected) {
     mqttClient.subscribe(`sensors/${rawId}/auth`, { qos:1 });
   }
@@ -1000,13 +907,15 @@ document.getElementById('btnSaveRoom').addEventListener('click', async () => {
 /* ═════════════════════════════════════════
    CONFIRMAÇÃO COM SENHA — POR DEVICE
 ═════════════════════════════════════════ */
-let _pendingCb  = null;
-let _pendingHash = null;  // hash esperado para o device em questão
+let _pendingCb     = null;
+let _pendingHash   = null;
+let _pendingRoomId = null;
 
 // Confirma com senha de um device específico
 function requireDevicePassword(room, title, desc, isDanger, callback) {
-  _pendingCb   = callback;
-  _pendingHash = room ? room.passHash : null;
+  _pendingCb     = callback;
+  _pendingHash   = room ? room.passHash : null;
+  _pendingRoomId = room ? room.id : null;
   document.getElementById('confirmTitle').textContent = title;
   document.getElementById('confirmDesc').textContent  = desc;
   document.getElementById('confirmPass').value = '';
@@ -1020,8 +929,9 @@ function requireDevicePassword(room, title, desc, isDanger, callback) {
 
 function closeConfirm() {
   document.getElementById('confirmOverlay').classList.remove('open');
-  _pendingCb   = null;
-  _pendingHash = null;
+  _pendingCb     = null;
+  _pendingHash   = null;
+  _pendingRoomId = null;
 }
 
 document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
@@ -1034,17 +944,14 @@ document.getElementById('confirmOk').addEventListener('click', async function() 
 
   if (!pass) { err.textContent = 'Digite a senha.'; err.classList.add('show'); return; }
 
-  // Se não há hash salvo localmente, tenta buscar do broker via tópico auth retained
-  if (!_pendingHash) {
-    err.textContent = 'Hash do device não encontrado. Reconecte o MQTT e tente novamente.';
+  if (!_pendingHash || !_pendingRoomId) {
+    err.textContent = 'Device não encontrado. Adicione o dispositivo novamente.';
     err.classList.add('show');
     return;
   }
 
-  // Descobre o deviceId pelo hash armazenado
-  const room = rooms.find(r => r.passHash === _pendingHash);
-  const deviceId = room ? room.id : '';
-  const inputHash = await sha256(deviceId + '|' + pass);
+  // Calcula hash da mesma forma que o ESP32: sha256(deviceId + "|" + senha)
+  const inputHash = await sha256(_pendingRoomId + '|' + pass);
 
   if (inputHash !== _pendingHash) {
     err.textContent = 'Senha incorreta.';
@@ -1079,130 +986,9 @@ function subscribeAuthTopics() {
 ═════════════════════════════════════════ */
 window.removeRoom = removeRoom;
 
-/* ═════════════════════════════════════════
-   DRAG & DROP — reordenar cards
-═════════════════════════════════════════ */
-let _dragId = null;
-function onDragStart(e) {
-  _dragId = this.dataset.id;
-  this.classList.add('dragging');
-  e.dataTransfer.effectAllowed = 'move';
-}
-function onDragOver(e) {
-  e.preventDefault();
-  if (this.dataset.id !== _dragId) this.classList.add('drag-over');
-}
-function onDragLeave() { this.classList.remove('drag-over'); }
-function onDragEnd()   { document.querySelectorAll('.room-card').forEach(c => c.classList.remove('dragging','drag-over')); }
-function onDrop(e) {
-  e.preventDefault();
-  this.classList.remove('drag-over');
-  const targetId = this.dataset.id;
-  if (!_dragId || _dragId === targetId) return;
-  const fromIdx = rooms.findIndex(r => r.id === _dragId);
-  const toIdx   = rooms.findIndex(r => r.id === targetId);
-  if (fromIdx === -1 || toIdx === -1) return;
-  // Reordenar requer senha do device arrastado
-  const room = rooms[fromIdx];
-  requireDevicePassword(room, '↕ Reordenar', `Confirme a senha de "${room.label}" para reordenar.`, false, () => {
-    const [moved] = rooms.splice(fromIdx, 1);
-    rooms.splice(toIdx, 0, moved);
-    saveRooms();
-    renderRooms();
-  });
-}
-
-/* ═════════════════════════════════════════
-   RENAME — renomear card inline
-═════════════════════════════════════════ */
-function startRename(roomId) {
-  const room = rooms.find(r => r.id === roomId);
-  if (!room) return;
-  requireDevicePassword(room, '✏️ Renomear', `Confirme a senha de "${room.label}" para renomear.`, false, () => {
-    const lblEl = document.getElementById(`lbl-${roomId}`);
-    if (!lblEl) return;
-    const input = document.createElement('input');
-    input.className = 'rename-input';
-    input.value = room.label;
-    lblEl.replaceWith(input);
-    input.focus(); input.select();
-    function commit() {
-      const newLabel = input.value.trim();
-      if (newLabel) { room.label = newLabel; saveRooms(); }
-      renderRooms();
-    }
-    input.addEventListener('blur', commit);
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter') input.blur();
-      if (e.key === 'Escape') renderRooms();
-    });
-  });
-}
-window.startRename = startRename;
-
-/* ═════════════════════════════════════════
-   ALERTAS
-═════════════════════════════════════════ */
-let _alertRoomId = null;
-function openAlertModal(roomId) {
-  const room = rooms.find(r => r.id === roomId);
-  if (!room) return;
-  requireDevicePassword(room, '🔔 Alertas', `Confirme a senha de "${room.label}" para editar alertas.`, false, () => {
-    _alertRoomId = roomId;
-    document.getElementById('alertRoomLabel').textContent = room.label;
-    const a = room.alerts || {};
-    document.getElementById('aMinTemp').value = a.minTemp ?? '';
-    document.getElementById('aMaxTemp').value = a.maxTemp ?? '';
-    document.getElementById('aMinHum').value  = a.minHum  ?? '';
-    document.getElementById('aMaxHum').value  = a.maxHum  ?? '';
-    document.getElementById('alertModal').classList.add('open');
-  });
-}
-function closeAlertModal() {
-  document.getElementById('alertModal').classList.remove('open');
-  _alertRoomId = null;
-}
-document.getElementById('btnAlertCancel').addEventListener('click', closeAlertModal);
-document.getElementById('alertModal').addEventListener('click', e => { if (e.target === document.getElementById('alertModal')) closeAlertModal(); });
-document.getElementById('btnAlertSave').addEventListener('click', () => {
-  const room = rooms.find(r => r.id === _alertRoomId);
-  if (!room) return;
-  const parse = id => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
-  room.alerts = { minTemp:parse('aMinTemp'), maxTemp:parse('aMaxTemp'), minHum:parse('aMinHum'), maxHum:parse('aMaxHum') };
-  room._alerted = false;
-  saveRooms();
-  toast('Alertas salvos!', 'success');
-  closeAlertModal();
-});
-document.getElementById('btnAlertClear').addEventListener('click', () => {
-  const room = rooms.find(r => r.id === _alertRoomId);
-  if (!room) return;
-  room.alerts = { minTemp:null, maxTemp:null, minHum:null, maxHum:null };
-  room._alerted = false;
-  const badge = document.getElementById(`alertbadge-${_alertRoomId}`);
-  if (badge) badge.style.display = 'none';
-  saveRooms();
-  toast('Alertas removidos.', 'info');
-  closeAlertModal();
-});
-window.openAlertModal = openAlertModal;
-
-/* ═════════════════════════════════════════
-   LIMPAR TODOS
-═════════════════════════════════════════ */
-document.getElementById('btnClearAll').addEventListener('click', () => {
-  if (rooms.length === 0) { toast('Nenhum device cadastrado.', 'info'); return; }
-  requireDevicePassword(rooms[0], '🗑 Limpar Tudo', 'Confirme a senha de um device para remover todos.', true, () => {
-    rooms.forEach(r => { if (mqttClient && mqttClient.connected) mqttClient.unsubscribe(`sensors/${r.id}/data`); });
-    rooms = [];
-    saveRooms();
-    renderRooms();
-    toast('Todos os devices removidos.', 'info');
-  });
-});
-
 renderRooms();
 window.addEventListener('resize', calcCardSize);
+// Abre MQTT automaticamente na primeira carga
 ensureMqtt();
 </script>
 </body>
