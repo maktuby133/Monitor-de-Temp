@@ -249,20 +249,6 @@ header {
 .add-card:hover .add-icon { transform:scale(1.1) rotate(5deg); }
 .add-card span { font-size:.85rem; font-weight:500; }
 
-/* ── DRAG & DROP + RENAME ── */
-.room-card { cursor:grab; }
-.room-card:active { cursor:grabbing; }
-.room-card.dragging { opacity:.4; transform:scale(.97); }
-.room-card.drag-over { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent); }
-.room-label-wrap { display:flex; align-items:center; gap:6px; }
-.rename-btn { background:none; border:none; color:var(--text-3); cursor:pointer; font-size:.75rem;
-  padding:2px 4px; border-radius:4px; opacity:0; transition:opacity .2s; line-height:1; }
-.card-head:hover .rename-btn { opacity:1; }
-.rename-btn:hover { color:var(--accent); }
-.rename-input { font-family:'Syne',sans-serif; font-weight:700; font-size:.9rem; color:var(--text-1);
-  background:var(--surface-2); border:1px solid var(--accent); border-radius:6px;
-  padding:2px 8px; outline:none; width:100%; }
-
 /* ─── MODAL ─── */
 .modal-overlay {
   position:fixed; inset:0; background:rgba(7,13,26,.85); backdrop-filter:blur(8px);
@@ -386,7 +372,7 @@ header {
       <div class="brand-icon">🌡️</div>
       <div>
         <h1>AmbientWatch</h1>
-        <p>Monitoramento de temperatura e umidade</p>
+        <p>Monitoramento de temperatura e humidade</p>
       </div>
     </div>
     <div class="header-actions" id="headerActions">
@@ -401,6 +387,10 @@ header {
       <button class="btn" id="btnAddRoom">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Ambiente
+      </button>
+      <button class="btn" id="btnClearAll" title="Limpar todos os devices salvos" style="border-color:rgba(248,113,113,.3);color:var(--red);background:rgba(248,113,113,.08)">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+        Limpar
       </button>
     </div>
   </header>
@@ -613,13 +603,6 @@ function buildCard(room, idx) {
   const el = document.createElement('div');
   el.className = `room-card ${room.status || 'waiting'}`;
   el.id = `card-${room.id}`;
-  el.draggable = true;
-  el.dataset.id = room.id;
-  el.addEventListener('dragstart', onDragStart);
-  el.addEventListener('dragover',  onDragOver);
-  el.addEventListener('dragleave', onDragLeave);
-  el.addEventListener('drop',      onDrop);
-  el.addEventListener('dragend',   onDragEnd);
 
   // Mostra "–" nos valores — não mostra dados velhos do localStorage como se fossem ao vivo
   const tempVal = '–';
@@ -631,10 +614,7 @@ function buildCard(room, idx) {
     <div class="card-glow"></div>
     <div class="card-head">
       <div class="room-info">
-        <div class="room-label-wrap">
-          <div class="room-label" id="lbl-${room.id}">${room.label}</div>
-          <button class="rename-btn" title="Renomear" onclick="startRename('${room.id}')">✏️</button>
-        </div>
+        <div class="room-label">${room.label}</div>
         <div class="room-topic">ID: ${room.id}</div>
         <div class="status-chip ${statusClass}"><div class="sdot"></div> ${statusText}</div>
       </div>
@@ -651,7 +631,7 @@ function buildCard(room, idx) {
         </div>
       </div>
       <div class="metric hum">
-        <div class="metric-label">💧 Umidade</div>
+        <div class="metric-label">💧 Humidade</div>
         <div class="metric-value" id="hum-${room.id}">${humVal}</div>
         <div class="metric-unit">por cento</div>
         <div class="bar-wrap">
@@ -734,7 +714,13 @@ function setOffline(roomId) {
 }
 
 function addRoom(label, id, icon, passHash) {
-  if (rooms.find(r => r.id === id)) { toast('Ambiente com este ID já existe!', 'error'); return; }
+  const existing = rooms.find(r => r.id === id);
+  if (existing) {
+    // Estava salvo no localStorage mas não aparece — remove e re-adiciona
+    rooms = rooms.filter(r => r.id !== id);
+    if (mqttClient && mqttClient.connected) mqttClient.unsubscribe(`sensors/${id}/data`);
+    toast('Device já existia (oculto) — re-adicionado.', 'info');
+  }
   const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null, passHash };
   rooms.push(room);
   saveRooms();
@@ -1008,6 +994,17 @@ function subscribeAuthTopics() {
    INIT
 ═════════════════════════════════════════ */
 window.removeRoom = removeRoom;
+
+document.getElementById('btnClearAll').addEventListener('click', () => {
+  if (!confirm('Remover todos os devices salvos? Esta ação não pode ser desfeita.')) return;
+  rooms.forEach(r => {
+    if (mqttClient && mqttClient.connected) mqttClient.unsubscribe(`sensors/${r.id}/data`);
+  });
+  rooms = [];
+  saveRooms();
+  renderRooms();
+  toast('Todos os devices removidos.', 'info');
+});
 
 renderRooms();
 window.addEventListener('resize', calcCardSize);
