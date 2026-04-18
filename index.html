@@ -249,6 +249,20 @@ header {
 .add-card:hover .add-icon { transform:scale(1.1) rotate(5deg); }
 .add-card span { font-size:.85rem; font-weight:500; }
 
+/* ── DRAG & DROP + RENAME ── */
+.room-card { cursor:grab; }
+.room-card:active { cursor:grabbing; }
+.room-card.dragging { opacity:.4; transform:scale(.97); }
+.room-card.drag-over { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent); }
+.room-label-wrap { display:flex; align-items:center; gap:6px; }
+.rename-btn { background:none; border:none; color:var(--text-3); cursor:pointer; font-size:.75rem;
+  padding:2px 4px; border-radius:4px; opacity:0; transition:opacity .2s; line-height:1; }
+.card-head:hover .rename-btn { opacity:1; }
+.rename-btn:hover { color:var(--accent); }
+.rename-input { font-family:'Syne',sans-serif; font-weight:700; font-size:.9rem; color:var(--text-1);
+  background:var(--surface-2); border:1px solid var(--accent); border-radius:6px;
+  padding:2px 8px; outline:none; width:100%; }
+
 /* ─── MODAL ─── */
 .modal-overlay {
   position:fixed; inset:0; background:rgba(7,13,26,.85); backdrop-filter:blur(8px);
@@ -359,20 +373,6 @@ header {
 }
 .cfg-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 @media (max-width:500px) { .cfg-grid { grid-template-columns:1fr; } }
-
-/* ── ALERTAS ── */
-.alert-badge {
-  display:inline-flex; align-items:center; gap:4px;
-  font-size:.62rem; font-weight:600; padding:2px 7px; border-radius:999px;
-  background:rgba(248,113,113,.15); border:1px solid rgba(248,113,113,.35); color:var(--red);
-  animation: alertPulse 1.2s ease infinite;
-}
-@keyframes alertPulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-.alert-modal-row { display:grid; grid-template-columns:1fr 1fr; gap:10px; align-items:end; }
-.alert-modal-row .form-group { margin-bottom:0; }
-.alert-section-label { font-size:.72rem; font-weight:700; color:var(--text-3); text-transform:uppercase;
-  letter-spacing:.07em; margin:16px 0 10px; display:flex; align-items:center; gap:8px; }
-.alert-section-label::before { content:''; flex:1; height:1px; background:var(--border); }
 </style>
 </head>
 <body>
@@ -386,7 +386,7 @@ header {
       <div class="brand-icon">🌡️</div>
       <div>
         <h1>AmbientWatch</h1>
-        <p>Monitoramento de temperatura e humidade</p>
+        <p>Monitoramento de temperatura e umidade</p>
       </div>
     </div>
     <div class="header-actions" id="headerActions">
@@ -519,41 +519,6 @@ header {
 <!-- TOASTS -->
 <div class="toast-wrap" id="toastWrap"></div>
 
-<!-- MODAL ALERTAS -->
-<div class="modal-overlay" id="alertModal">
-  <div class="modal">
-    <h2>🔔 Alertas — <span id="alertRoomLabel"></span></h2>
-    <p>Defina os limites de temperatura e umidade. Quando ultrapassados, um alerta aparece no card.</p>
-    <div class="alert-section-label">Temperatura °C</div>
-    <div class="alert-modal-row">
-      <div class="form-group">
-        <label>Mínima</label>
-        <input id="aMinTemp" type="number" step="0.5" placeholder="ex: 15">
-      </div>
-      <div class="form-group">
-        <label>Máxima</label>
-        <input id="aMaxTemp" type="number" step="0.5" placeholder="ex: 35">
-      </div>
-    </div>
-    <div class="alert-section-label">Umidade %</div>
-    <div class="alert-modal-row">
-      <div class="form-group">
-        <label>Mínima</label>
-        <input id="aMinHum" type="number" step="1" placeholder="ex: 30">
-      </div>
-      <div class="form-group">
-        <label>Máxima</label>
-        <input id="aMaxHum" type="number" step="1" placeholder="ex: 80">
-      </div>
-    </div>
-    <div class="modal-actions" style="margin-top:24px">
-      <button class="btn-cancel" id="btnAlertCancel">Cancelar</button>
-      <button class="btn-primary" id="btnAlertClear" style="flex:1;border-color:rgba(248,113,113,.4);color:var(--red);background:rgba(248,113,113,.08)">🗑 Limpar</button>
-      <button class="btn-primary" id="btnAlertSave">✓ Salvar</button>
-    </div>
-  </div>
-</div>
-
 <script>
 /* ═════════════════════════════════════════
    SHA-256 UTIL
@@ -648,6 +613,13 @@ function buildCard(room, idx) {
   const el = document.createElement('div');
   el.className = `room-card ${room.status || 'waiting'}`;
   el.id = `card-${room.id}`;
+  el.draggable = true;
+  el.dataset.id = room.id;
+  el.addEventListener('dragstart', onDragStart);
+  el.addEventListener('dragover',  onDragOver);
+  el.addEventListener('dragleave', onDragLeave);
+  el.addEventListener('drop',      onDrop);
+  el.addEventListener('dragend',   onDragEnd);
 
   // Mostra "–" nos valores — não mostra dados velhos do localStorage como se fossem ao vivo
   const tempVal = '–';
@@ -659,10 +631,12 @@ function buildCard(room, idx) {
     <div class="card-glow"></div>
     <div class="card-head">
       <div class="room-info">
-        <div class="room-label">${room.label}</div>
+        <div class="room-label-wrap">
+          <div class="room-label" id="lbl-${room.id}">${room.label}</div>
+          <button class="rename-btn" title="Renomear" onclick="startRename('${room.id}')">✏️</button>
+        </div>
         <div class="room-topic">ID: ${room.id}</div>
         <div class="status-chip ${statusClass}"><div class="sdot"></div> ${statusText}</div>
-        <div class="alert-badge" id="alertbadge-${room.id}" style="display:none">⚠ Alerta</div>
       </div>
       <div class="room-icon">${room.icon}</div>
     </div>
@@ -677,7 +651,7 @@ function buildCard(room, idx) {
         </div>
       </div>
       <div class="metric hum">
-        <div class="metric-label">💧 Humidade</div>
+        <div class="metric-label">💧 Umidade</div>
         <div class="metric-value" id="hum-${room.id}">${humVal}</div>
         <div class="metric-unit">por cento</div>
         <div class="bar-wrap">
@@ -689,7 +663,6 @@ function buildCard(room, idx) {
     <div class="card-footer">
       <div class="last-update" id="upd-${room.id}">Sem dados recebidos</div>
       <div class="card-actions">
-        <button class="icon-btn" title="Alertas" onclick="openAlertModal('${room.id}')">🔔</button>
         <button class="icon-btn del" title="Remover" onclick="removeRoom('${room.id}')">🗑</button>
       </div>
     </div>
@@ -722,27 +695,6 @@ function updateCardData(roomId, data) {
   room._timeout = setTimeout(() => setOffline(room.id), TIMEOUT_MS);
 
   const card = document.getElementById(`card-${roomId}`);
-  // ── VERIFICA ALERTAS ──
-  if (room.alerts) {
-    const a = room.alerts;
-    const triggered = (a.minTemp !== null && temp < a.minTemp) ||
-                      (a.maxTemp !== null && temp > a.maxTemp) ||
-                      (a.minHum  !== null && hum  < a.minHum)  ||
-                      (a.maxHum  !== null && hum  > a.maxHum);
-    const badge = document.getElementById(`alertbadge-${roomId}`);
-    if (badge) badge.style.display = triggered ? 'inline-flex' : 'none';
-    if (triggered && !room._alerted) {
-      room._alerted = true;
-      let msgs = [];
-      if (a.minTemp !== null && temp < a.minTemp) msgs.push(`Temp baixa: ${temp.toFixed(1)}°C (mín ${a.minTemp}°C)`);
-      if (a.maxTemp !== null && temp > a.maxTemp) msgs.push(`Temp alta: ${temp.toFixed(1)}°C (máx ${a.maxTemp}°C)`);
-      if (a.minHum  !== null && hum  < a.minHum)  msgs.push(`Umidade baixa: ${hum.toFixed(1)}% (mín ${a.minHum}%)`);
-      if (a.maxHum  !== null && hum  > a.maxHum)  msgs.push(`Umidade alta: ${hum.toFixed(1)}% (máx ${a.maxHum}%)`);
-      toast(`⚠ ${room.label}: ${msgs.join(' | ')}`, 'error', 8000);
-    }
-    if (!triggered) room._alerted = false;
-  }
-
   if (card) {
     card.className = 'room-card online';
     const chip = card.querySelector('.status-chip');
@@ -783,8 +735,7 @@ function setOffline(roomId) {
 
 function addRoom(label, id, icon, passHash) {
   if (rooms.find(r => r.id === id)) { toast('Ambiente com este ID já existe!', 'error'); return; }
-  const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null, passHash,
-    alerts: { minTemp:null, maxTemp:null, minHum:null, maxHum:null } };
+  const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null, passHash };
   rooms.push(room);
   saveRooms();
   renderRooms();
@@ -1052,54 +1003,6 @@ function subscribeAuthTopics() {
     mqttClient.subscribe(`sensors/${r.id}/auth`, { qos:1 });
   });
 }
-
-/* ═════════════════════════════════════════
-   ALERTAS
-═════════════════════════════════════════ */
-let _alertRoomId = null;
-
-function openAlertModal(roomId) {
-  _alertRoomId = roomId;
-  const room = rooms.find(r => r.id === roomId);
-  document.getElementById('alertRoomLabel').textContent = room ? room.label : roomId;
-  const a = room && room.alerts ? room.alerts : {};
-  document.getElementById('aMinTemp').value = a.minTemp ?? '';
-  document.getElementById('aMaxTemp').value = a.maxTemp ?? '';
-  document.getElementById('aMinHum').value  = a.minHum  ?? '';
-  document.getElementById('aMaxHum').value  = a.maxHum  ?? '';
-  document.getElementById('alertModal').classList.add('open');
-}
-function closeAlertModal() {
-  document.getElementById('alertModal').classList.remove('open');
-  _alertRoomId = null;
-}
-document.getElementById('btnAlertCancel').addEventListener('click', closeAlertModal);
-document.getElementById('alertModal').addEventListener('click', e => { if (e.target === document.getElementById('alertModal')) closeAlertModal(); });
-
-document.getElementById('btnAlertSave').addEventListener('click', () => {
-  const room = rooms.find(r => r.id === _alertRoomId);
-  if (!room) return;
-  const parse = id => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
-  room.alerts = { minTemp: parse('aMinTemp'), maxTemp: parse('aMaxTemp'), minHum: parse('aMinHum'), maxHum: parse('aMaxHum') };
-  room._alerted = false;
-  saveRooms();
-  toast('Alertas salvos!', 'success');
-  closeAlertModal();
-});
-
-document.getElementById('btnAlertClear').addEventListener('click', () => {
-  const room = rooms.find(r => r.id === _alertRoomId);
-  if (!room) return;
-  room.alerts = { minTemp:null, maxTemp:null, minHum:null, maxHum:null };
-  room._alerted = false;
-  const badge = document.getElementById(`alertbadge-${_alertRoomId}`);
-  if (badge) badge.style.display = 'none';
-  saveRooms();
-  toast('Alertas removidos.', 'info');
-  closeAlertModal();
-});
-
-window.openAlertModal = openAlertModal;
 
 /* ═════════════════════════════════════════
    INIT
