@@ -776,7 +776,7 @@ function updateCardData(roomId, data) {
     }
   }
   saveRooms();
-  saveHistoryPoint(room.id, temp, hum, Date.now());
+  saveHist(room.id, temp, hum, Date.now());
 }
 
 function setOffline(roomId) {
@@ -1228,142 +1228,32 @@ renderRooms();
 window.addEventListener('resize', calcCardSize);
 ensureMqtt();
 
-// ── HISTÓRICO LOCAL (IndexedDB) ──
-let _db;
-function openDB() {
-  return new Promise((res, rej) => {
-    const req = indexedDB.open('ambientWatch', 1);
-    req.onupgradeneeded = e => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('history')) {
-        const store = db.createObjectStore('history', { keyPath: 'id', autoIncrement: true });
-        store.createIndex('device', 'deviceId', { unique: false });
-      }
-    };
-    req.onsuccess = e => { _db = e.target.result; res(_db); };
-    req.onerror = rej;
-  });
-}
-async function saveHistoryPoint(deviceId, temp, hum, ts) {
-  if (!_db) await openDB();
-  const tx = _db.transaction('history', 'readwrite');
-  tx.objectStore('history').add({ deviceId, temp, hum, ts });
-  // mantém apenas últimos 100
-  const idx = tx.objectStore('history').index('device');
-  const req = idx.getAll(IDBKeyRange.only(deviceId));
-  req.onsuccess = () => {
-    const all = req.result.sort((a,b)=>b.ts-a.ts);
-    if (all.length > 100) {
-      const tx2 = _db.transaction('history','readwrite');
-      all.slice(100).forEach(r => tx2.objectStore('history').delete(r.id));
-    }
-  };
-}
-async function getHistory(deviceId) {
-  if (!_db) await openDB();
-  return new Promise(res => {
-    const tx = _db.transaction('history','readonly');
-    const req = tx.objectStore('history').index('device').getAll(IDBKeyRange.only(deviceId));
-    req.onsuccess = () => res(req.result.sort((a,b)=>a.ts-b.ts).slice(-100));
-  });
-}
-let _chart;
-async function openHistoryModal(roomId) {
-  const room = rooms.find(r=>r.id===roomId);
-  document.getElementById('historyTitle').textContent = `Histórico — ${room.label}`;
-  document.getElementById('historyModal').classList.add('open');
-  const data = await getHistory(roomId);
-  const labels = data.map(d => new Date(d.ts).toLocaleTimeString());
-  const temps = data.map(d => d.temp);
-  const hums = data.map(d => d.hum);
-  const ctx = document.getElementById('historyChart');
-  if (_chart) _chart.destroy();
-  _chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels,
-      datasets: [
-        { label: 'Temp °C', data: temps, borderColor: '#fb923c', backgroundColor: 'rgba(251,146,60,.15)', tension: .3 },
-        { label: 'Umid %', data: hums, borderColor: '#38bdf8', backgroundColor: 'rgba(56,189,248,.15)', tension: .3 }
-      ]
-    },
-    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#94a3b8' } } }, scales: { x: { ticks: { color: '#4a5a72' } }, y: { ticks: { color: '#4a5a72' } } } }
-  });
-  const stats = document.getElementById('historyStats');
-  if (data.length) {
-    const avgT = (temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1);
-    const avgH = (hums.reduce((a,b)=>a+b,0)/hums.length).toFixed(1);
-    stats.innerHTML = `
-      <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Temp</div><div style="font-size:1.3rem;font-weight:700;color:var(--warm)">${avgT}°C</div></div>
-      <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Umid</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent)">${avgH}%</div></div>
-      <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Pontos</div><div style="font-size:1.3rem;font-weight:700">${data.length}</div></div>
-    `;
-  }
-}
-function closeHistoryModal() { document.getElementById('historyModal').classList.remove('open'); }
-
-// inicializa
-openDB();
-// atualiza grid quando adicionar/remover ambiente
-const _origRenderRooms = renderRooms;
-renderRooms = function() { _origRenderRooms(); renderHistoryGrid(); };
-
-
-document.getElementById('btnHistory').onclick = () => openHistoryOverview();
-function openHistoryOverview() {
-  document.getElementById('historyOverviewModal').classList.add('open');
-  renderHistoryOverview();
-}
-function closeHistoryOverview() { document.getElementById('historyOverviewModal').classList.remove('open'); }
-function renderHistoryOverview() {
-  const grid = document.getElementById('historyOverviewGrid');
-  const empty = document.getElementById('historyEmpty');
-  if (!rooms.length) { grid.innerHTML=''; empty.style.display='block'; return; }
-  empty.style.display='none';
-  grid.innerHTML = rooms.map(r => `
-    <div class="room-card" style="cursor:pointer;min-height:110px" onclick="closeHistoryOverview(); openHistoryModal('${r.id}')">
-      <div style="display:flex;align-items:center;gap:10px">
-        <div style="width:36px;height:36px;border-radius:10px;background:var(--accent-dim);display:grid;place-items:center">📊</div>
-        <div>
-          <div style="font-weight:600">${r.label}</div>
-          <div style="font-size:.75rem;color:var(--text-2)">${r.id}</div>
-        </div>
-      </div>
-      <div style="margin-top:10px;font-size:.8rem;color:var(--text-2)">Ver últimas 100 leituras</div>
-    </div>
-  `).join('');
-}
-// atualiza quando renderiza rooms
-const _origRenderRooms2 = renderRooms;
-renderRooms = function() { _origRenderRooms2(); };
+// ── HISTÓRICO ──
+let _hdb, _hchart;
+function openHistDB(){return new Promise((res,rej)=>{const r=indexedDB.open('ambientWatch',1);r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('history')){const s=db.createObjectStore('history',{keyPath:'id',autoIncrement:true});s.createIndex('device','deviceId')}};r.onsuccess=e=>{_hdb=e.target.result;res()};r.onerror=rej})}
+async function saveHist(id,t,h,ts){if(!_hdb)await openHistDB();const tx=_hdb.transaction('history','readwrite');tx.objectStore('history').add({deviceId:id,temp:t,hum:h,ts});const idx=tx.objectStore('history').index('device');idx.getAll(IDBKeyRange.only(id)).onsuccess=e=>{const a=e.target.result.sort((x,y)=>y.ts-x.ts);if(a.length>100){const tx2=_hdb.transaction('history','readwrite');a.slice(100).forEach(r=>tx2.objectStore('history').delete(r.id))}}}
+async function getHist(id){if(!_hdb)await openHistDB();return new Promise(r=>{const tx=_hdb.transaction('history','readonly');tx.objectStore('history').index('device').getAll(IDBKeyRange.only(id)).onsuccess=e=>r(e.target.result.sort((a,b)=>a.ts-b.ts).slice(-100))})}
+document.getElementById('btnHistory').onclick=()=>{document.getElementById('historyModal').classList.add('open');const s=document.getElementById('histSelect');s.innerHTML=rooms.map(r=>`<option value="${r.id}">${r.label}</option>`).join('');if(rooms[0])loadHist(rooms[0].id);s.onchange=()=>loadHist(s.value)};
+function closeHistory(){document.getElementById('historyModal').classList.remove('open')}
+async function loadHist(id){const d=await getHist(id);const l=d.map(x=>new Date(x.ts).toLocaleTimeString());const t=d.map(x=>x.temp);const h=d.map(x=>x.hum);const c=document.getElementById('histChart');if(_hchart)_hchart.destroy();_hchart=new Chart(c,{type:'line',data:{labels:l,datasets:[{label:'Temp',data:t,borderColor:'#fb923c',backgroundColor:'rgba(251,146,60,.15)',tension:.3},{label:'Umid',data:h,borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.15)',tension:.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8'}}},scales:{x:{ticks:{color:'#4a5a72'}},y:{ticks:{color:'#4a5a72'}}}}});const st=document.getElementById('histStats');if(d.length){const at=(t.reduce((a,b)=>a+b,0)/t.length).toFixed(1);const ah=(h.reduce((a,b)=>a+b,0)/h.length).toFixed(1);st.innerHTML=`<div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Temp</div><div style="font-size:1.3rem;font-weight:700;color:var(--warm)">${at}°C</div></div><div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Umid</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent)">${ah}%</div></div><div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Pontos</div><div style="font-size:1.3rem;font-weight:700">${d.length}</div></div>`}else{st.innerHTML='<div style="color:var(--text-3);grid-column:1/-1;text-align:center">Sem dados</div>'}}
+openHistDB();
 
 </script>
 
 <!-- HISTORY MODAL -->
 <div class="modal" id="historyModal">
-  <div class="modal-card" style="max-width:800px">
-    <div class="modal-head">
-      <h3 id="historyTitle">Histórico</h3>
-      <button class="x" onclick="closeHistoryModal()">✕</button>
-    </div>
-    <div class="modal-body">
-      <canvas id="historyChart" height="300"></canvas>
-      <div id="historyStats" style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
-    </div>
-  </div>
-</div>
-
-
-<!-- HISTORY OVERVIEW MODAL -->
-<div class="modal" id="historyOverviewModal">
   <div class="modal-card" style="max-width:900px">
     <div class="modal-head">
-      <h3>Históricos por Ambiente</h3>
-      <button class="x" onclick="closeHistoryOverview()">✕</button>
+      <h3>Histórico</h3>
+      <button class="x" onclick="closeHistory()">✕</button>
     </div>
     <div class="modal-body">
-      <div class="rooms-grid" id="historyOverviewGrid" style="grid-template-columns:repeat(auto-fill,minmax(200px,1fr))"></div>
-      <div id="historyEmpty" style="text-align:center;color:var(--text-2);padding:40px;display:none">Nenhum ambiente criado ainda.</div>
+      <div style="margin-bottom:16px;display:flex;gap:12px;align-items:center">
+        <label style="font-size:.85rem;color:var(--text-2)">Ambiente:</label>
+        <select id="histSelect" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text-1)"></select>
+      </div>
+      <canvas id="histChart" height="300"></canvas>
+      <div id="histStats" style="margin-top:16px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
     </div>
   </div>
 </div>
