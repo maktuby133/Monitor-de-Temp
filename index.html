@@ -1374,7 +1374,7 @@ ensureMqtt();
 let _hchart;
 
 // Cole aqui a mesma URL do Apps Script configurada no ESP32
-const SHEETS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbz1zGmesHqx3KVIX0ccwXEH8ukwnYKNcyY1UMViyZk9647RR1aQg_YSb3mDN6cXYCw/exec';
+const SHEETS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw957X-USxlWuhf7ptUV7qglXyxLZPzTmFhPGriTHkssLGXRCZ_R3EX1LtdzjCQ1yRo/exec';
 
 async function getHistSheets(deviceId, limit) {
   const url = `${SHEETS_SCRIPT_URL}?device_id=${encodeURIComponent(deviceId)}&limit=${limit || 168}`;
