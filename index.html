@@ -912,27 +912,48 @@ function setBadge(state) {
 }
 
 /* ─── MODAL MQTT ─── */
-function openMqttModal(requirePass) {
-  if (requirePass) {
-    requirePassword('⚙️ Configurar MQTT', 'Confirme sua senha para alterar as configurações MQTT.', false, () => {
-      document.getElementById('cfgBroker').value = _mqttCfg.broker || '';
-      document.getElementById('cfgUser').value   = _mqttCfg.user   || '';
-      document.getElementById('cfgPort').value   = _mqttCfg.port   || 8884;
-      document.getElementById('cfgPass').value   = '';
-      document.getElementById('mqttModal').classList.add('open');
-    });
-  } else {
-    const _saved = (() => { try { return JSON.parse(localStorage.getItem('amb_mqtt_cfg') || '{}'); } catch(e) { return {}; } })();
+function openMqttModal() {
+  const _saved = (() => { try { return JSON.parse(localStorage.getItem('amb_mqtt_cfg') || '{}'); } catch(e) { return {}; } })();
+  const savedPass = _mqttCfg.pass || _saved.pass || '';
+
+  if (!savedPass) {
+    // Primeira vez — sem senha salva, abre direto
     document.getElementById('cfgBroker').value = _mqttCfg.broker || _saved.broker || '';
     document.getElementById('cfgUser').value   = _mqttCfg.user   || _saved.user   || '';
     document.getElementById('cfgPort').value   = _mqttCfg.port   || _saved.port   || 8884;
-    document.getElementById('cfgPass').value   = _mqttCfg.pass   || _saved.pass   || '';
+    document.getElementById('cfgPass').value   = '';
     document.getElementById('mqttModal').classList.add('open');
+    return;
   }
+
+  // Pede a senha MQTT antes de abrir
+  _pendingCb     = () => {
+    document.getElementById('cfgBroker').value = _mqttCfg.broker || _saved.broker || '';
+    document.getElementById('cfgUser').value   = _mqttCfg.user   || _saved.user   || '';
+    document.getElementById('cfgPort').value   = _mqttCfg.port   || _saved.port   || 8884;
+    document.getElementById('cfgPass').value   = savedPass;
+    document.getElementById('mqttModal').classList.add('open');
+  };
+  _pendingRoomId = null;
+  _mqttAuthMode  = true;
+  _mqttAuthPass  = savedPass;
+  document.getElementById('confirmTitle').textContent = '⚙️ Configurar MQTT';
+  document.getElementById('confirmDesc').textContent  = 'Digite a senha MQTT para acessar as configurações.';
+  document.getElementById('confirmPass').value = '';
+  document.getElementById('confirmError').classList.remove('show');
+  const okBtn = document.getElementById('confirmOk');
+  okBtn.className  = 'confirm-ok';
+  okBtn.textContent = '✓ Confirmar';
+  okBtn.disabled   = false;
+  _forceMode = false;
+  document.getElementById('confirmPass').type        = 'password';
+  document.getElementById('confirmPass').placeholder = 'Senha MQTT';
+  document.getElementById('confirmOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('confirmPass').focus(), 100);
 }
 function closeMqttModal() { document.getElementById('mqttModal').classList.remove('open'); }
 
-document.getElementById('btnMqttCfg').addEventListener('click', () => requireGlobalAuth(() => openMqttModal(false)));
+document.getElementById('btnMqttCfg').addEventListener('click', () => openMqttModal());
 document.getElementById('btnMqttCancel').addEventListener('click', closeMqttModal);
 document.getElementById('mqttModal').addEventListener('click', e => { if (e.target === document.getElementById('mqttModal')) closeMqttModal(); });
 
@@ -1103,6 +1124,8 @@ let _globalAuthCb = null;
 let _pendingCb       = null;
 let _pendingRoomId   = null;
 let _forceMode       = false;
+let _mqttAuthMode    = false;
+let _mqttAuthPass    = '';
 
 function requireDevicePassword(room, title, desc, isDanger, callback) {
   _pendingCb     = callback;
@@ -1124,7 +1147,7 @@ function requireDevicePassword(room, title, desc, isDanger, callback) {
 
 function closeConfirm() {
   document.getElementById('confirmOverlay').classList.remove('open');
-  _pendingCb = null; _pendingRoomId = null; _forceMode = false;
+  _pendingCb = null; _pendingRoomId = null; _forceMode = false; _mqttAuthMode = false; _mqttAuthPass = '';
   document.getElementById('confirmPass').type = 'password';
   document.getElementById('confirmPass').placeholder = 'Senha do dispositivo';
 }
@@ -1136,6 +1159,21 @@ document.getElementById('confirmOk').addEventListener('click', async function() 
   const pass = document.getElementById('confirmPass').value;
   const err  = document.getElementById('confirmError');
   err.classList.remove('show');
+
+  // Modo autenticação MQTT — compara com senha salva localmente
+  if (_mqttAuthMode) {
+    if (pass !== _mqttAuthPass) {
+      err.textContent = 'Senha MQTT incorreta.';
+      err.classList.add('show');
+      document.getElementById('confirmPass').value = '';
+      document.getElementById('confirmPass').focus();
+      return;
+    }
+    const fn = _pendingCb;
+    closeConfirm();
+    if (fn) fn();
+    return;
+  }
 
   // Modo forçado (ESP32 offline) — confirma digitando o Device ID
   if (_forceMode) {
