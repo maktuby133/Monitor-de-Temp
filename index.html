@@ -1241,29 +1241,28 @@ openHistDB();
 
 async function sha256hex(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
 function requireAuth(action){
-  const modal=document.getElementById('pwdModal'), input=document.getElementById('pwdInput');
-  input.value=''; modal.classList.add('open'); setTimeout(()=>input.focus(),50);
-  const clean=()=>{modal.classList.remove('open');document.getElementById('pwdOk').onclick=null;document.getElementById('pwdCancel').onclick=null;};
+  const m=document.getElementById('pwdModal'), i=document.getElementById('pwdInput'), msg=document.getElementById('authMsg');
+  i.value=''; msg.textContent='Digite a senha definida no portal do ESP32.'; m.classList.add('open'); setTimeout(()=>i.focus(),50);
+  const clean=()=>{m.classList.remove('open');document.getElementById('pwdOk').onclick=null;document.getElementById('pwdCancel').onclick=null;};
   document.getElementById('pwdCancel').onclick=clean;
   document.getElementById('pwdOk').onclick=async()=>{
-    const pwd=input.value; if(!pwd){toast('Digite a senha','error');return;}
+    const pwd=i.value.trim(); if(!pwd){toast('Digite a senha','error');return;}
     if(!mqttClient||!mqttClient.connected){toast('MQTT desconectado','error');clean();return;}
-    const devices=rooms.map(r=>r.deviceId).filter(Boolean);
-    if(devices.length===0){toast('Cadastre pelo menos 1 ambiente com ID do ESP32 primeiro','error');clean();return;}
     const token=Math.random().toString(36).slice(2,9);
     const hash=await sha256hex(pwd);
-    let done=false;
-    const handler=(t,p)=>{try{const d=JSON.parse(p.toString()); if(d.token===token && d.ok && !done){done=true; cleanupAll(); clean(); action();}}catch(e){}};
-    const cleanupAll=()=>{devices.forEach(id=>{mqttClient.unsubscribe(`sensors/${id}/auth/response`);}); mqttClient.removeListener('message',handler); clearTimeout(to);};
+    msg.textContent='Validando...'; document.getElementById('pwdOk').disabled=true;
+    let ok=false;
+    const resTopic='sensors/auth/response';
+    const handler=(t,p)=>{if(t===resTopic){try{const d=JSON.parse(p.toString()); if(d.token===token){ok=d.ok;}}catch(e){}}};
     mqttClient.on('message',handler);
-    devices.forEach(id=>{mqttClient.subscribe(`sensors/${id}/auth/response`,{qos:1}); mqttClient.publish(`sensors/${id}/auth/request`,JSON.stringify({token,hash}),{qos:1});});
-    const to=setTimeout(()=>{if(!done){done=true; cleanupAll(); toast('Senha incorreta ou ESP32 não respondeu','error'); input.select();}},3500);
+    mqttClient.subscribe(resTopic,{qos:1},()=>{mqttClient.publish('sensors/auth/global',JSON.stringify({token,hash}),{qos:1});});
+    setTimeout(()=>{mqttClient.unsubscribe(resTopic); mqttClient.removeListener('message',handler); document.getElementById('pwdOk').disabled=false; if(ok){clean(); action();} else {msg.textContent='Senha incorreta ou ESP32 não respondeu.'; toast('Falha na autenticação','error'); i.select();}},2500);
   };
 }
 document.getElementById('btnAddRoom').onclick=()=>requireAuth(()=>document.getElementById('roomModal').classList.add('open'));
 document.getElementById('btnMqttCfg').onclick=()=>requireAuth(()=>document.getElementById('mqttModal').classList.add('open'));
 const _del=id=>{rooms=rooms.filter(r=>r.id!==id);saveRooms();renderRooms();toast('Excluído','success');};
-window.deleteRoom=id=>requireAuth(()=>{if(confirm('Excluir?'))_del(id);});
+window.deleteRoom=id=>requireAuth(()=>{if(confirm('Excluir ambiente?'))_del(id);});
 
 </script>
 
@@ -1287,11 +1286,11 @@ window.deleteRoom=id=>requireAuth(()=>{if(confirm('Excluir?'))_del(id);});
 <div class="modal-overlay" id="pwdModal">
   <div class="modal" style="max-width:400px">
     <h2>🔒 Autenticação ESP32</h2>
-    <p>Digite a senha definida no portal do ESP32.</p>
+    <p id="authMsg">Digite a senha do ESP32.</p>
     <input type="password" id="pwdInput" placeholder="Senha" style="width:100%;margin:16px 0;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-1)">
     <div style="display:flex;gap:12px;justify-content:flex-end">
       <button class="btn" id="pwdCancel">Cancelar</button>
-      <button class="btn primary" id="pwdOk">Confirmar</button>
+      <button class="btn primary" id="pwdOk">Validar</button>
     </div>
   </div>
 </div>
