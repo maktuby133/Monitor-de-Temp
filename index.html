@@ -827,8 +827,9 @@ function connectMQTT(broker, port, user, pass) {
   if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
 
   _mqttCfg = { broker, port, user, pass };
-  // Salva no localStorage para reconectar automaticamente
-  localStorage.setItem('amb_mqtt_cfg', JSON.stringify({ broker, port, user, pass }));
+  // Salva apenas broker/user no localStorage (senha fica em memória)
+  localStorage.setItem('amb_mqtt_cfg', JSON.stringify({ broker, port, user }));
+  // senha não é persistida por segurança
 
   const url = `wss://${broker}:${port}/mqtt`;
   let clientId = 'dash_' + Math.random().toString(36).substr(2, 9);
@@ -858,8 +859,8 @@ function connectMQTT(broker, port, user, pass) {
   });
 
   mqttClient.on('error', err => { setBadge('error'); toast('Erro MQTT: ' + err.message, 'error'); });
-  mqttClient.on('close', () => setBadge('disconnected'));
-  mqttClient.on('offline', () => setBadge('disconnected'));
+  mqttClient.on('close', () => { setBadge('disconnected'); toast('MQTT desconectado. Tentando reconectar...', 'info'); });
+  mqttClient.on('offline', () => { setBadge('disconnected'); });
 
   mqttClient.on('message', (topic, message) => {
     try {
@@ -917,7 +918,7 @@ function openMqttModal(requirePass) {
     document.getElementById('cfgBroker').value = _mqttCfg.broker || _saved.broker || '';
     document.getElementById('cfgUser').value   = _mqttCfg.user   || _saved.user   || '';
     document.getElementById('cfgPort').value   = _mqttCfg.port   || _saved.port   || 8884;
-    document.getElementById('cfgPass').value   = _mqttCfg.pass   || _saved.pass   || '';
+    document.getElementById('cfgPass').value   = _mqttCfg.pass || '';
     document.getElementById('mqttModal').classList.add('open');
   }
 }
@@ -988,6 +989,7 @@ document.getElementById('btnSaveRoom').addEventListener('click', () => {
    Fluxo: dashboard publica request → ESP32 compara → publica response
 ═════════════════════════════════════════ */
 const _authPending = {};  // token → { resolve, reject, timer }
+window.addEventListener('beforeunload', () => { Object.values(_authPending).forEach(p => clearTimeout(p.timer)); });
 
 // Pede autenticação ao ESP32 via MQTT
 // Retorna Promise que resolve true/false
