@@ -199,9 +199,13 @@ header {
 }
 .status-chip.online  { background:rgba(52,211,153,.1); border-color:rgba(52,211,153,.25); color:var(--green); }
 .status-chip.offline { background:rgba(248,113,113,.1); border-color:rgba(248,113,113,.25); color:var(--red); }
+.status-chip.error   { background:rgba(251,146,60,.12); border-color:rgba(251,146,60,.35); color:var(--warm); animation:alertPulse 1.4s ease infinite; }
 .status-chip.waiting { background:rgba(148,163,184,.07); border-color:rgba(148,163,184,.15); color:var(--text-3); }
 .status-chip .sdot   { width:5px; height:5px; border-radius:50%; background:currentColor; }
 .status-chip.online .sdot { animation:pulse 2s infinite; }
+.room-card.sensor-error { border-color:rgba(251,146,60,.35); }
+.room-card.sensor-error::before { background:linear-gradient(90deg,transparent,var(--warm),transparent); opacity:.6; }
+.sensor-error-icon { font-size:1.1rem; animation:alertPulse 1.2s ease infinite; }
 
 /* ─── MÉTRICAS ─── */
 .metrics { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
@@ -760,6 +764,9 @@ function updateCardData(roomId, data) {
     card.className = 'room-card online';
     const chip = card.querySelector('.status-chip');
     if (chip) { chip.className = 'status-chip online'; chip.innerHTML = '<div class="sdot"></div> Online'; }
+    // Remove ícone de erro se existir
+    const errIcon = card.querySelector('.sensor-error-icon');
+    if (errIcon) errIcon.remove();
     const tv  = document.getElementById(`temp-${roomId}`);
     const hv  = document.getElementById(`hum-${roomId}`);
     const tb  = document.getElementById(`tempbar-${roomId}`);
@@ -782,26 +789,34 @@ function updateCardData(roomId, data) {
 function setOffline(roomId) {
   const room = rooms.find(r => r.id === roomId);
   if (!room) return;
-  room.status = 'offline';
+  room.status = 'sensor-error';
   const card = document.getElementById(`card-${roomId}`);
   if (card) {
-    card.className = 'room-card offline';
+    card.className = 'room-card sensor-error';
     const chip = card.querySelector('.status-chip');
-    if (chip) { chip.className = 'status-chip offline'; chip.innerHTML = '<div class="sdot"></div> Offline'; }
+    if (chip) { chip.className = 'status-chip error'; chip.innerHTML = '<div class="sdot"></div> ⚠ Erro no sensor'; }
     const upd = document.getElementById(`upd-${roomId}`);
-    if (upd) upd.textContent = 'Sem dados (timeout 30s)';
-    // Zera valores para evitar falso positivo
+    if (upd) upd.textContent = 'Sem resposta do sensor';
+    // Adiciona ícone de alerta no room-icon se ainda não existir
+    const icon = card.querySelector('.room-icon');
+    if (icon && !icon.querySelector('.sensor-error-icon')) {
+      const errIcon = document.createElement('span');
+      errIcon.className = 'sensor-error-icon';
+      errIcon.title = 'Sensor sem comunicação';
+      errIcon.textContent = '⚠️';
+      icon.appendChild(errIcon);
+    }
     const tv = document.getElementById(`temp-${roomId}`);
     const hv = document.getElementById(`hum-${roomId}`);
     const tb = document.getElementById(`tempbar-${roomId}`);
     const hb = document.getElementById(`humbar-${roomId}`);
-    if (tv) tv.textContent = '0.0';
-    if (hv) hv.textContent = '0.0';
+    if (tv) tv.textContent = '–';
+    if (hv) hv.textContent = '–';
     if (tb) tb.style.width = '0%';
     if (hb) hb.style.width = '0%';
   }
   saveRooms();
-  toast(`⚠️ ${room.label} ficou offline`, 'error', 5000);
+  toast(`⚠️ Erro no sensor: ${room.label} parou de responder`, 'error', 6000);
 }
 
 function addRoom(label, id, icon) {
