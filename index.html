@@ -784,6 +784,15 @@ function setOffline(roomId) {
     if (chip) { chip.className = 'status-chip offline'; chip.innerHTML = '<div class="sdot"></div> Offline'; }
     const upd = document.getElementById(`upd-${roomId}`);
     if (upd) upd.textContent = 'Sem dados (timeout 30s)';
+    // Zera valores para evitar falso positivo
+    const tv = document.getElementById(`temp-${roomId}`);
+    const hv = document.getElementById(`hum-${roomId}`);
+    const tb = document.getElementById(`tempbar-${roomId}`);
+    const hb = document.getElementById(`humbar-${roomId}`);
+    if (tv) tv.textContent = '0.0';
+    if (hv) hv.textContent = '0.0';
+    if (tb) tb.style.width = '0%';
+    if (hb) hb.style.width = '0%';
   }
   saveRooms();
   toast(`⚠️ ${room.label} ficou offline`, 'error', 5000);
@@ -859,7 +868,7 @@ function connectMQTT(broker, port, user, pass) {
 
   mqttClient.on('error', err => { setBadge('error'); toast('Erro MQTT: ' + err.message, 'error'); });
   mqttClient.on('close', () => { setBadge('disconnected'); toast('MQTT desconectado. Tentando reconectar...', 'info'); });
-  mqttClient.on('offline', () => { setBadge('disconnected'); });
+  mqttClient.on('offline', () => setBadge('disconnected'));
 
   mqttClient.on('message', (topic, message) => {
     try {
