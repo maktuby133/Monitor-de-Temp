@@ -767,6 +767,7 @@ function updateCardData(roomId, data) {
     // Remove ícone de erro se existir
     const errIcon = card.querySelector('.sensor-error-icon');
     if (errIcon) errIcon.remove();
+    room._sensorErrorToasted = false;
     const tv  = document.getElementById(`temp-${roomId}`);
     const hv  = document.getElementById(`hum-${roomId}`);
     const tb  = document.getElementById(`tempbar-${roomId}`);
@@ -784,6 +785,40 @@ function updateCardData(roomId, data) {
   }
   saveRooms();
   saveHist(room.id, temp, hum, Date.now());
+}
+
+function setSensorError(roomId) {
+  const room = rooms.find(r => r.id === roomId);
+  if (!room) return;
+  room.status = 'sensor-error';
+  const card = document.getElementById(`card-${roomId}`);
+  if (card) {
+    card.className = 'room-card sensor-error';
+    const chip = card.querySelector('.status-chip');
+    if (chip) { chip.className = 'status-chip error'; chip.innerHTML = '<div class="sdot"></div> ⚠ Erro no sensor'; }
+    const upd = document.getElementById(`upd-${roomId}`);
+    if (upd) upd.textContent = 'Falha na leitura do sensor';
+    const icon = card.querySelector('.room-icon');
+    if (icon && !icon.querySelector('.sensor-error-icon')) {
+      const errIcon = document.createElement('span');
+      errIcon.className = 'sensor-error-icon';
+      errIcon.title = 'Falha na leitura do sensor físico';
+      errIcon.textContent = '⚠️';
+      icon.appendChild(errIcon);
+    }
+    const tv = document.getElementById(`temp-${roomId}`);
+    const hv = document.getElementById(`hum-${roomId}`);
+    const tb = document.getElementById(`tempbar-${roomId}`);
+    const hb = document.getElementById(`humbar-${roomId}`);
+    if (tv) tv.textContent = '–';
+    if (hv) hv.textContent = '–';
+    if (tb) tb.style.width = '0%';
+    if (hb) hb.style.width = '0%';
+  }
+  saveRooms();
+  if (room._sensorErrorToasted) return;
+  room._sensorErrorToasted = true;
+  toast(`🔌 Erro no sensor físico: ${room.label}`, 'error', 6000);
 }
 
 function setOffline(roomId) {
@@ -910,8 +945,10 @@ function connectMQTT(broker, port, user, pass) {
 
       // msgType === 'data'
       const room = rooms.find(r => r.id === deviceId);
-      if (room) updateCardData(room.id, data);
-      else console.warn(`[MQTT] Nenhum ambiente cadastrado para device_id="${deviceId}"`);
+      if (room) {
+        if (data.sensor_error) setSensorError(room.id);
+        else updateCardData(room.id, data);
+      } else console.warn(`[MQTT] Nenhum ambiente cadastrado para device_id="${deviceId}"`);
     } catch(e) { console.warn('[MQTT] Erro ao parsear mensagem:', e); }
   });
 }
