@@ -1031,8 +1031,9 @@ async function sha256(msg) {
 }
 
 /* ── Confirm overlay com senha → autentica no ESP32 ── */
-let _pendingCb     = null;
-let _pendingRoomId = null;
+let _pendingCb       = null;
+let _pendingRoomId   = null;
+let _forceMode       = false;
 
 function requireDevicePassword(room, title, desc, isDanger, callback) {
   _pendingCb     = callback;
@@ -1045,13 +1046,18 @@ function requireDevicePassword(room, title, desc, isDanger, callback) {
   okBtn.className = 'confirm-ok' + (isDanger ? ' danger' : '');
   okBtn.textContent = isDanger ? '⚠️ Confirmar' : '✓ Confirmar';
   okBtn.disabled = false;  // garante reset mesmo se auth anterior ficou travado
+  _forceMode = false;
+  document.getElementById('confirmPass').type = 'password';
+  document.getElementById('confirmPass').placeholder = 'Senha do dispositivo';
   document.getElementById('confirmOverlay').classList.add('open');
   setTimeout(() => document.getElementById('confirmPass').focus(), 100);
 }
 
 function closeConfirm() {
   document.getElementById('confirmOverlay').classList.remove('open');
-  _pendingCb = null; _pendingRoomId = null;
+  _pendingCb = null; _pendingRoomId = null; _forceMode = false;
+  document.getElementById('confirmPass').type = 'password';
+  document.getElementById('confirmPass').placeholder = 'Senha do dispositivo';
 }
 
 document.getElementById('confirmCancel').addEventListener('click', closeConfirm);
@@ -1061,6 +1067,19 @@ document.getElementById('confirmOk').addEventListener('click', async function() 
   const pass = document.getElementById('confirmPass').value;
   const err  = document.getElementById('confirmError');
   err.classList.remove('show');
+
+  // Modo forçado (ESP32 offline) — confirma digitando o Device ID
+  if (_forceMode) {
+    if (pass.trim().toLowerCase() !== _pendingRoomId.toLowerCase()) {
+      err.textContent = 'Device ID incorreto. Tente novamente.';
+      err.classList.add('show');
+      return;
+    }
+    const fn = _pendingCb;
+    closeConfirm();
+    if (fn) fn();
+    return;
+  }
 
   if (!pass) { err.textContent = 'Digite a senha.'; err.classList.add('show'); return; }
   if (!_pendingRoomId) { err.textContent = 'Device não identificado.'; err.classList.add('show'); return; }
@@ -1085,10 +1104,17 @@ document.getElementById('confirmOk').addEventListener('click', async function() 
       okBtn.textContent = origText;
     }
   } catch(e) {
-    err.textContent = e.message;
+    // ESP32 offline ou sem resposta — modo forçado: confirma com Device ID
+    _forceMode = true;
+    document.getElementById('confirmPass').value = '';
+    document.getElementById('confirmPass').type = 'text';
+    document.getElementById('confirmPass').placeholder = _pendingRoomId;
+    err.innerHTML = '⚠ ESP32 não respondeu.<br><small>Digite o Device ID <b>' + _pendingRoomId + '</b> para confirmar mesmo assim.</small>';
     err.classList.add('show');
     okBtn.disabled = false;
-    okBtn.textContent = origText;
+    okBtn.textContent = '⚠ Confirmar mesmo assim';
+    okBtn.className = 'confirm-ok danger';
+    document.getElementById('confirmPass').focus();
   }
 });
 
