@@ -938,9 +938,7 @@ function openMqttModal(requirePass) {
 }
 function closeMqttModal() { document.getElementById('mqttModal').classList.remove('open'); }
 
-document.getElementById('btnMqttCfg').addEventListener('click', () => {
-  openMqttModal(false);
-});
+document.getElementById('btnMqttCfg').addEventListener('click', () => requireGlobalAuth(() => openMqttModal(false)));
 document.getElementById('btnMqttCancel').addEventListener('click', closeMqttModal);
 document.getElementById('mqttModal').addEventListener('click', e => { if (e.target === document.getElementById('mqttModal')) closeMqttModal(); });
 
@@ -968,8 +966,8 @@ function closeModal() {
   document.getElementById('topicPreview').textContent = '...';
 }
 
-document.getElementById('btnAddRoom').addEventListener('click', () => openAddModal());
-document.getElementById('addCardPlaceholder').addEventListener('click', () => openAddModal());
+document.getElementById('btnAddRoom').addEventListener('click', () => requireGlobalAuth(() => openAddModal()));
+document.getElementById('addCardPlaceholder').addEventListener('click', () => requireGlobalAuth(() => openAddModal()));
 document.getElementById('btnCancelModal').addEventListener('click', closeModal);
 document.getElementById('addModal').addEventListener('click', e => { if (e.target === document.getElementById('addModal')) closeModal(); });
 
@@ -1045,6 +1043,23 @@ async function sha256(msg) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(msg));
   return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
 }
+
+/* ── Autenticação global via device escolhido pelo usuário ── */
+function requireGlobalAuth(callback) {
+  if (!rooms.length) {
+    toast('⛔ Nenhum device cadastrado. Adicione um device antes de continuar.', 'error', 5000);
+    return;
+  }
+
+  // Monta select com devices disponíveis
+  const options = rooms.map(r => `<option value="${r.id}">${r.label} (${r.id})</option>`).join('');
+  document.getElementById('globalAuthSelect').innerHTML = options;
+  _globalAuthCb = callback;
+  document.getElementById('globalAuthOverlay').classList.add('open');
+  setTimeout(() => document.getElementById('globalAuthOverlay').querySelector('select').focus(), 100);
+}
+
+let _globalAuthCb = null;
 
 /* ── Confirm overlay com senha → autentica no ESP32 ── */
 let _pendingCb       = null;
@@ -1255,6 +1270,41 @@ openHistDB();
     </div>
   </div>
 </div>
+
+<!-- MODAL SELEÇÃO DE DEVICE PARA AUTH GLOBAL -->
+<div class="confirm-overlay" id="globalAuthOverlay">
+  <div class="confirm-box">
+    <h3>🔐 Autenticação</h3>
+    <p>Selecione o device para autenticar a ação.</p>
+    <div class="confirm-field">
+      <label>Device</label>
+      <select id="globalAuthSelect" style="width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 13px;color:var(--text-1);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none;transition:border .2s;"></select>
+    </div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel" id="globalAuthCancel">Cancelar</button>
+      <button class="confirm-ok" id="globalAuthConfirm">✓ Continuar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+document.getElementById('globalAuthCancel').addEventListener('click', () => {
+  document.getElementById('globalAuthOverlay').classList.remove('open');
+  _globalAuthCb = null;
+});
+document.getElementById('globalAuthOverlay').addEventListener('click', function(e) {
+  if (e.target === this) { this.classList.remove('open'); _globalAuthCb = null; }
+});
+document.getElementById('globalAuthConfirm').addEventListener('click', () => {
+  const roomId = document.getElementById('globalAuthSelect').value;
+  const room = rooms.find(r => r.id === roomId);
+  if (!room) return;
+  document.getElementById('globalAuthOverlay').classList.remove('open');
+  requireDevicePassword(room, '🔐 Autenticação', `Confirme a senha de "${room.label}" para continuar.`, false, () => {
+    if (_globalAuthCb) { _globalAuthCb(); _globalAuthCb = null; }
+  });
+});
+</script>
 
 </body>
 </html>
