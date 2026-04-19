@@ -1239,74 +1239,39 @@ async function loadHist(id){const d=await getHist(id);const l=d.map(x=>new Date(
 openHistDB();
 
 
-// ── AUTENTICAÇÃO VIA ESP32 ──
+async function sha256hex(str){const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
 function requireAuth(action){
-  const modal = document.getElementById('pwdModal');
-  const input = document.getElementById('pwdInput');
-  document.getElementById('pwdText').textContent = 'Digite a senha do ESP32 (mesma do modo AP).';
-  input.value = '';
-  modal.classList.add('open');
-  input.focus();
-  
-  const cleanup = () => {
-    document.getElementById('pwdOk').onclick = null;
-    document.getElementById('pwdCancel').onclick = null;
-    modal.classList.remove('open');
-  };
-  
-  document.getElementById('pwdCancel').onclick = () => { cleanup(); };
-  
-  document.getElementById('pwdOk').onclick = () => {
-    const pwd = input.value.trim();
-    if (!pwd) { toast('Digite a senha','error'); return; }
-    if (!mqttClient || !mqttClient.connected) { toast('MQTT desconectado','error'); cleanup(); return; }
-    
-    const reqId = Math.random().toString(36).substr(2,8);
-    const respTopic = 'casa/auth/response/' + reqId;
-    let responded = false;
-    
-    const handler = (topic, payload) => {
-      if (topic === respTopic && !responded) {
-        responded = true;
-        clearTimeout(timer);
-        mqttClient.unsubscribe(respTopic);
-        mqttClient.removeListener('message', handler);
-        try {
-          const data = JSON.parse(payload.toString());
-          if (data.ok) {
-            cleanup();
-            action();
-          } else {
-            toast('Senha incorreta','error');
-            input.value = '';
-            input.focus();
-          }
-        } catch(e) { toast('Erro na resposta','error'); }
+  const modal=document.getElementById('pwdModal');
+  const input=document.getElementById('pwdInput');
+  input.value=''; modal.classList.add('open'); input.focus();
+  const cleanup=()=>{modal.classList.remove('open');document.getElementById('pwdOk').onclick=null;document.getElementById('pwdCancel').onclick=null;};
+  document.getElementById('pwdCancel').onclick=cleanup;
+  document.getElementById('pwdOk').onclick=async()=>{
+    const pwd=input.value.trim(); if(!pwd){toast('Digite a senha','error');return;}
+    if(!mqttClient||!mqttClient.connected){toast('MQTT desconectado','error');cleanup();return;}
+    // pega primeiro ESP32 online
+    const dev = rooms.find(r=>r.deviceId && r.online);
+    if(!dev){toast('Nenhum ESP32 online para validar','error');cleanup();return;}
+    const deviceId=dev.deviceId;
+    const token=Math.random().toString(36).substr(2,8);
+    const hash=await sha256hex(pwd);
+    const reqTopic=`sensors/${deviceId}/auth/request`;
+    const resTopic=`sensors/${deviceId}/auth/response`;
+    let responded=false;
+    const handler=(topic,payload)=>{
+      if(topic===resTopic && !responded){
+        try{const data=JSON.parse(payload.toString()); if(data.token===token){responded=true; clearTimeout(timer); mqttClient.unsubscribe(resTopic); mqttClient.removeListener('message',handler); if(data.ok){cleanup(); action();} else {toast('Senha incorreta','error'); input.select();}} }catch(e){}
       }
     };
-    
-    mqttClient.on('message', handler);
-    mqttClient.subscribe(respTopic, {qos:0}, (err) => {
-      if (err) { toast('Erro ao assinar','error'); cleanup(); return; }
-      mqttClient.publish('casa/auth/request', JSON.stringify({id:reqId,password:pwd}), {qos:0});
-    });
-    
-    const timer = setTimeout(() => {
-      if (!responded) {
-        responded = true;
-        mqttClient.unsubscribe(respTopic);
-        mqttClient.removeListener('message', handler);
-        toast('ESP32 não respondeu (verifique se está online)','error');
-      }
-    }, 4000);
+    mqttClient.on('message',handler);
+    mqttClient.subscribe(resTopic,{qos:1},(err)=>{if(err){toast('Erro MQTT','error');cleanup();return;} mqttClient.publish(reqTopic,JSON.stringify({token,hash}),{qos:1});});
+    const timer=setTimeout(()=>{if(!responded){responded=true; mqttClient.unsubscribe(resTopic); mqttClient.removeListener('message',handler); toast('ESP32 não respondeu','error');}},4000);
   };
 }
-
-// intercepta ações sensíveis
-document.getElementById('btnAddRoom').onclick = () => requireAuth(() => document.getElementById('roomModal').classList.add('open'));
-document.getElementById('btnMqttCfg').onclick = () => requireAuth(() => document.getElementById('mqttModal').classList.add('open'));
-const _origDelete = (id) => { rooms = rooms.filter(r=>r.id!==id); saveRooms(); renderRooms(); toast('Ambiente excluído','success'); };
-window.deleteRoom = (id) => requireAuth(() => { if(confirm('Excluir ambiente?')) _origDelete(id); });
+document.getElementById('btnAddRoom').onclick=()=>requireAuth(()=>document.getElementById('roomModal').classList.add('open'));
+document.getElementById('btnMqttCfg').onclick=()=>requireAuth(()=>document.getElementById('mqttModal').classList.add('open'));
+const _del=(id)=>{rooms=rooms.filter(r=>r.id!==id);saveRooms();renderRooms();toast('Ambiente excluído','success');};
+window.deleteRoom=(id)=>requireAuth(()=>{if(confirm('Excluir ambiente?'))_del(id);});
 
 </script>
 
@@ -1327,11 +1292,10 @@ window.deleteRoom = (id) => requireAuth(() => { if(confirm('Excluir ambiente?'))
 </div>
 
 
-<!-- ADMIN PASSWORD MODAL -->
 <div class="modal-overlay" id="pwdModal">
   <div class="modal" style="max-width:400px">
     <h2>🔒 Autenticação ESP32</h2>
-    <p id="pwdText">Digite a senha do modo AP do ESP32.</p>
+    <p>Digite a senha definida no portal do ESP32.</p>
     <input type="password" id="pwdInput" placeholder="Senha" style="width:100%;margin:16px 0;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-1)">
     <div style="display:flex;gap:12px;justify-content:flex-end">
       <button class="btn" id="pwdCancel">Cancelar</button>
@@ -1339,6 +1303,5 @@ window.deleteRoom = (id) => requireAuth(() => { if(confirm('Excluir ambiente?'))
     </div>
   </div>
 </div>
-
 </body>
 </html>
