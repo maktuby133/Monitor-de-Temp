@@ -489,11 +489,6 @@ header {
       <div style="font-size:.7rem;color:var(--text-3);margin-top:6px">Tópico MQTT: sensors/<strong id="topicPreview" style="color:var(--accent)">...</strong>/data</div>
     </div>
     <div class="form-group">
-      <label>Senha do Dispositivo</label>
-      <input id="mDevPass" type="password" placeholder="Senha definida no portal AP do ESP32">
-      <div style="font-size:.7rem;color:var(--text-3);margin-top:6px">🔑 A mesma senha que você criou ao configurar o ESP32 no modo AP</div>
-    </div>
-    <div class="form-group">
       <label>Ícone</label>
       <div class="icon-picker" id="iconPicker">
         <div class="icon-opt sel" data-icon="🏠">🏠</div>
@@ -962,12 +957,11 @@ function closeModal() {
   document.getElementById('addModal').classList.remove('open');
   document.getElementById('mLabel').value   = '';
   document.getElementById('mTopic').value   = '';
-  document.getElementById('mDevPass').value = '';
   document.getElementById('topicPreview').textContent = '...';
 }
 
-document.getElementById('btnAddRoom').addEventListener('click', () => requireGlobalAuth(() => openAddModal()));
-document.getElementById('addCardPlaceholder').addEventListener('click', () => requireGlobalAuth(() => openAddModal()));
+document.getElementById('btnAddRoom').addEventListener('click', () => openAddModal());
+document.getElementById('addCardPlaceholder').addEventListener('click', () => openAddModal());
 document.getElementById('btnCancelModal').addEventListener('click', closeModal);
 document.getElementById('addModal').addEventListener('click', e => { if (e.target === document.getElementById('addModal')) closeModal(); });
 
@@ -985,15 +979,44 @@ document.getElementById('iconPicker').addEventListener('click', e => {
 });
 
 document.getElementById('btnSaveRoom').addEventListener('click', () => {
-  const label = document.getElementById('mLabel').value.trim();
-  const rawId = document.getElementById('mTopic').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
+  const label   = document.getElementById('mLabel').value.trim();
+  const rawId   = document.getElementById('mTopic').value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
   if (!label || !rawId) { toast('Preencha nome e Device ID!', 'error'); return; }
-  addRoom(label, rawId, selectedIcon);
-  if (mqttClient && mqttClient.connected) {
-    mqttClient.subscribe(`sensors/${rawId}/data`, { qos:1 });
+  if (!mqttClient || !mqttClient.connected) { toast('⛔ MQTT desconectado. Conecte ao broker primeiro.', 'error'); return; }
+
+  const btn = document.getElementById('btnSaveRoom');
+  btn.disabled = true;
+  btn.textContent = '⏳ Aguardando dados...';
+
+  // Subscreve o tópico e aguarda até 10s por dados reais do device
+  const topic = `sensors/${rawId}/data`;
+  mqttClient.subscribe(topic, { qos:1 });
+
+  let resolved = false;
+  const timeout = setTimeout(() => {
+    if (resolved) return;
+    resolved = true;
+    mqttClient.removeListener('message', onMsg);
+    toast('⛔ Device não respondeu. Verifique o Device ID e se o sensor está online.', 'error', 6000);
+    closeModal();
+    btn.disabled = false;
+    btn.textContent = '✓ Adicionar';
+  }, 10000);
+
+  function onMsg(t) {
+    if (resolved) return;
+    if (t !== topic) return;
+    resolved = true;
+    clearTimeout(timeout);
+    mqttClient.removeListener('message', onMsg);
+    addRoom(label, rawId, selectedIcon);
     mqttClient.subscribe(`sensors/${rawId}/auth/response`, { qos:1 });
+    closeModal();
+    btn.disabled = false;
+    btn.textContent = '✓ Adicionar';
   }
-  closeModal();
+
+  mqttClient.on('message', onMsg);
 });
 
 /* ═════════════════════════════════════════
