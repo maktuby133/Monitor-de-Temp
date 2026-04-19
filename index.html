@@ -784,7 +784,6 @@ function updateCardData(roomId, data) {
     }
   }
   saveRooms();
-  saveHist(room.id, temp, hum, Date.now());
 }
 
 function setSensorError(roomId) {
@@ -1371,51 +1370,28 @@ renderRooms();
 window.addEventListener('resize', calcCardSize);
 ensureMqtt();
 
-// ── HISTÓRICO ──
-let _hdb, _hchart;
+// ── HISTÓRICO via Google Sheets ──
+let _hchart;
 
-const HIST_MAX_POINTS   = 288;          // 24h a cada 5min no pior caso
-const HIST_MIN_INTERVAL = 30*60*1000;   // 30min mínimo entre gravações de rotina
-const HIST_MIN_GAP      = 5*60*1000;    // 5min gap mínimo absoluto entre qualquer gravação
-const HIST_TEMP_DELTA   = 0.5;          // °C — variação que força gravação antecipada
-const HIST_HUM_DELTA    = 2;            // % — variação que força gravação antecipada
-const _lastSaved = {};                  // { deviceId: { temp, hum, ts } }
+// Cole aqui a mesma URL do Apps Script configurada no ESP32
+const SHEETS_SCRIPT_URL = 'https://script.google.com/macros/s/COLE_SUA_URL_AQUI/exec';
 
-function openHistDB(){return new Promise((res,rej)=>{const r=indexedDB.open('ambientWatch',2);r.onupgradeneeded=e=>{const db=e.target.result;if(!db.objectStoreNames.contains('history')){const s=db.createObjectStore('history',{keyPath:'id',autoIncrement:true});s.createIndex('device','deviceId')}};r.onsuccess=e=>{_hdb=e.target.result;res()};r.onerror=rej})}
-
-async function saveHist(id, t, h, ts) {
-  if (!_hdb) await openHistDB();
-  const last = _lastSaved[id];
-  if (last) {
-    const dt = ts - last.ts;
-    if (dt < HIST_MIN_GAP) return; // muito cedo, ignora sempre
-    const tempDiff = Math.abs(t - last.temp);
-    const humDiff  = Math.abs(h - last.hum);
-    // Grava antecipado só se houve variação significativa; senão aguarda 30min
-    if (dt < HIST_MIN_INTERVAL && tempDiff < HIST_TEMP_DELTA && humDiff < HIST_HUM_DELTA) return;
-  }
-  _lastSaved[id] = { temp: t, hum: h, ts };
-  const tx = _hdb.transaction('history', 'readwrite');
-  tx.objectStore('history').add({ deviceId: id, temp: t, hum: h, ts });
-  tx.objectStore('history').index('device').getAll(IDBKeyRange.only(id)).onsuccess = e => {
-    const a = e.target.result.sort((x, y) => y.ts - x.ts);
-    if (a.length > HIST_MAX_POINTS) {
-      const tx2 = _hdb.transaction('history', 'readwrite');
-      a.slice(HIST_MAX_POINTS).forEach(r => tx2.objectStore('history').delete(r.id));
-    }
-  };
+async function getHistSheets(deviceId, limit) {
+  const url = `${SHEETS_SCRIPT_URL}?device_id=${encodeURIComponent(deviceId)}&limit=${limit || 168}`;
+  const res  = await fetch(url);
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Erro ao buscar histórico');
+  return json.data; // [{ts, temp, hum}]
 }
-
-async function getHist(id){if(!_hdb)await openHistDB();return new Promise(r=>{const tx=_hdb.transaction('history','readonly');tx.objectStore('history').index('device').getAll(IDBKeyRange.only(id)).onsuccess=e=>r(e.target.result.sort((a,b)=>a.ts-b.ts))})}
 
 function aggregateByHour(data) {
   const buckets = {};
   data.forEach(p => {
-    const d = new Date(p.ts);
-    const key = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}h`;
+    // ts vem como string "dd/MM/yyyy HH:mm:ss" do Sheets
+    const key = p.ts ? p.ts.substring(0, 13).replace(' ', ' ') + 'h' : '?';
     if (!buckets[key]) buckets[key] = { temps:[], hums:[] };
-    buckets[key].temps.push(p.temp);
-    buckets[key].hums.push(p.hum);
+    buckets[key].temps.push(Number(p.temp));
+    buckets[key].hums.push(Number(p.hum));
   });
   return Object.entries(buckets).map(([label, v]) => ({
     label,
@@ -1424,47 +1400,67 @@ function aggregateByHour(data) {
   }));
 }
 
-document.getElementById('btnHistory').onclick=()=>{document.getElementById('historyModal').classList.add('open');const s=document.getElementById('histSelect');s.innerHTML=rooms.map(r=>`<option value="${r.id}">${r.label}</option>`).join('');if(rooms[0])loadHist(rooms[0].id);s.onchange=()=>loadHist(s.value)};
-function closeHistory(){document.getElementById('historyModal').classList.remove('open')}
+document.getElementById('btnHistory').onclick = () => {
+  document.getElementById('historyModal').classList.add('open');
+  const s = document.getElementById('histSelect');
+  s.innerHTML = rooms.map(r => `<option value="${r.id}">${r.label}</option>`).join('');
+  if (rooms[0]) loadHist(rooms[0].id);
+  s.onchange = () => loadHist(s.value);
+};
+function closeHistory(){ document.getElementById('historyModal').classList.remove('open'); }
+
 async function loadHist(id) {
-  const raw = await getHist(id);
-  const d   = aggregateByHour(raw);
-  const l   = d.map(x => x.label);
-  const t   = d.map(x => x.temp);
-  const h   = d.map(x => x.hum);
-  const c   = document.getElementById('histChart');
-  if (_hchart) _hchart.destroy();
-  _hchart = new Chart(c, {
-    type: 'line',
-    data: { labels: l, datasets: [
-      { label:'Temp °C', data:t, borderColor:'#fb923c', backgroundColor:'rgba(251,146,60,.15)', tension:.3, pointRadius:3 },
-      { label:'Umid %',  data:h, borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.15)', tension:.3, pointRadius:3 }
-    ]},
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins:{ legend:{ labels:{ color:'#94a3b8' } }, tooltip:{ callbacks:{ title: items => items[0].label } } },
-      scales:{
-        x:{ ticks:{ color:'#4a5a72', maxRotation:45 } },
-        y:{ ticks:{ color:'#4a5a72' } }
-      }
-    }
-  });
   const st = document.getElementById('histStats');
-  if (d.length) {
-    const at = (t.reduce((a,b)=>a+b,0)/t.length).toFixed(1);
-    const ah = (h.reduce((a,b)=>a+b,0)/h.length).toFixed(1);
+  const c  = document.getElementById('histChart');
+  st.innerHTML = '<div style="color:var(--text-3);grid-column:1/-1;text-align:center">⏳ Carregando do Google Sheets...</div>';
+  if (_hchart) { _hchart.destroy(); _hchart = null; }
+
+  if (!SHEETS_SCRIPT_URL || SHEETS_SCRIPT_URL.includes('COLE_SUA_URL')) {
+    st.innerHTML = '<div style="color:var(--red);grid-column:1/-1;text-align:center">⚠ Configure SHEETS_SCRIPT_URL no dashboard.</div>';
+    return;
+  }
+
+  try {
+    const raw = await getHistSheets(id, 500);
+    const d   = aggregateByHour(raw);
+    const l   = d.map(x => x.label);
+    const t   = d.map(x => x.temp);
+    const h   = d.map(x => x.hum);
+
+    if (!d.length) {
+      st.innerHTML = '<div style="color:var(--text-3);grid-column:1/-1;text-align:center">Sem dados ainda no Sheets.</div>';
+      return;
+    }
+
+    _hchart = new Chart(c, {
+      type: 'line',
+      data: { labels: l, datasets: [
+        { label:'Temp °C', data:t, borderColor:'#fb923c', backgroundColor:'rgba(251,146,60,.15)', tension:.3, pointRadius:3 },
+        { label:'Umid %',  data:h, borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.15)', tension:.3, pointRadius:3 }
+      ]},
+      options: {
+        responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ labels:{ color:'#94a3b8' } } },
+        scales:{
+          x:{ ticks:{ color:'#4a5a72', maxRotation:45 } },
+          y:{ ticks:{ color:'#4a5a72' } }
+        }
+      }
+    });
+
+    const at   = (t.reduce((a,b)=>a+b,0)/t.length).toFixed(1);
+    const ah   = (h.reduce((a,b)=>a+b,0)/h.length).toFixed(1);
     const tMax = Math.max(...t).toFixed(1);
     const tMin = Math.min(...t).toFixed(1);
     st.innerHTML = `
       <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Temp</div><div style="font-size:1.3rem;font-weight:700;color:var(--warm)">${at}°C</div></div>
       <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Umid</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent)">${ah}%</div></div>
       <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Máx / Mín Temp</div><div style="font-size:1.1rem;font-weight:700;color:var(--warm)">${tMax}° / ${tMin}°</div></div>
-      <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Horas registradas</div><div style="font-size:1.3rem;font-weight:700">${d.length}</div></div>`;
-  } else {
-    st.innerHTML = '<div style="color:var(--text-3);grid-column:1/-1;text-align:center">Sem dados ainda</div>';
+      <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Registros</div><div style="font-size:1.3rem;font-weight:700">${raw.length}</div></div>`;
+  } catch(e) {
+    st.innerHTML = `<div style="color:var(--red);grid-column:1/-1;text-align:center">⚠ Erro ao carregar: ${e.message}</div>`;
   }
 }
-openHistDB();
 
 </script>
 
