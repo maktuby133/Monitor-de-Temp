@@ -805,12 +805,6 @@ function setOffline(roomId) {
 }
 
 function addRoom(label, id, icon) {
-  const existing = rooms.find(r => r.id === id);
-  if (existing) {
-    rooms = rooms.filter(r => r.id !== id);
-    if (mqttClient && mqttClient.connected) mqttClient.unsubscribe(`sensors/${id}/data`);
-    toast('Device já existia — re-adicionado.', 'info');
-  }
   const room = { id, label, icon, status: 'waiting', temperature: null, humidity: null, lastUpdate: null,
     alerts: { minTemp:null, maxTemp:null, minHum:null, maxHum:null } };
   rooms.push(room);
@@ -990,6 +984,7 @@ document.getElementById('btnSaveRoom').addEventListener('click', () => {
   const devPass = document.getElementById('mDevPass').value;
   if (!label || !rawId)  { toast('Preencha nome e Device ID!', 'error'); return; }
   if (!devPass)          { toast('Digite a senha do dispositivo!', 'error'); return; }
+  if (rooms.find(r => r.id === rawId)) { toast('⛔ Device ID já cadastrado.', 'error', 5000); return; }
   if (!mqttClient || !mqttClient.connected) { toast('⛔ MQTT desconectado. Conecte ao broker primeiro.', 'error'); return; }
 
   const btn = document.getElementById('btnSaveRoom');
