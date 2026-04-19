@@ -1239,39 +1239,31 @@ async function loadHist(id){const d=await getHist(id);const l=d.map(x=>new Date(
 openHistDB();
 
 
-async function sha256hex(str){const buf=await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');}
+async function sha256hex(s){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(s));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
 function requireAuth(action){
-  const modal=document.getElementById('pwdModal');
-  const input=document.getElementById('pwdInput');
-  input.value=''; modal.classList.add('open'); input.focus();
-  const cleanup=()=>{modal.classList.remove('open');document.getElementById('pwdOk').onclick=null;document.getElementById('pwdCancel').onclick=null;};
-  document.getElementById('pwdCancel').onclick=cleanup;
+  const modal=document.getElementById('pwdModal'), input=document.getElementById('pwdInput');
+  input.value=''; modal.classList.add('open'); setTimeout(()=>input.focus(),50);
+  const clean=()=>{modal.classList.remove('open');document.getElementById('pwdOk').onclick=null;document.getElementById('pwdCancel').onclick=null;};
+  document.getElementById('pwdCancel').onclick=clean;
   document.getElementById('pwdOk').onclick=async()=>{
-    const pwd=input.value.trim(); if(!pwd){toast('Digite a senha','error');return;}
-    if(!mqttClient||!mqttClient.connected){toast('MQTT desconectado','error');cleanup();return;}
-    // pega primeiro ESP32 online
-    const dev = rooms.find(r=>r.deviceId && r.online);
-    if(!dev){toast('Nenhum ESP32 online para validar','error');cleanup();return;}
-    const deviceId=dev.deviceId;
-    const token=Math.random().toString(36).substr(2,8);
+    const pwd=input.value; if(!pwd){toast('Digite a senha','error');return;}
+    if(!mqttClient||!mqttClient.connected){toast('MQTT desconectado','error');clean();return;}
+    const devices=rooms.map(r=>r.deviceId).filter(Boolean);
+    if(devices.length===0){toast('Cadastre pelo menos 1 ambiente com ID do ESP32 primeiro','error');clean();return;}
+    const token=Math.random().toString(36).slice(2,9);
     const hash=await sha256hex(pwd);
-    const reqTopic=`sensors/${deviceId}/auth/request`;
-    const resTopic=`sensors/${deviceId}/auth/response`;
-    let responded=false;
-    const handler=(topic,payload)=>{
-      if(topic===resTopic && !responded){
-        try{const data=JSON.parse(payload.toString()); if(data.token===token){responded=true; clearTimeout(timer); mqttClient.unsubscribe(resTopic); mqttClient.removeListener('message',handler); if(data.ok){cleanup(); action();} else {toast('Senha incorreta','error'); input.select();}} }catch(e){}
-      }
-    };
+    let done=false;
+    const handler=(t,p)=>{try{const d=JSON.parse(p.toString()); if(d.token===token && d.ok && !done){done=true; cleanupAll(); clean(); action();}}catch(e){}};
+    const cleanupAll=()=>{devices.forEach(id=>{mqttClient.unsubscribe(`sensors/${id}/auth/response`);}); mqttClient.removeListener('message',handler); clearTimeout(to);};
     mqttClient.on('message',handler);
-    mqttClient.subscribe(resTopic,{qos:1},(err)=>{if(err){toast('Erro MQTT','error');cleanup();return;} mqttClient.publish(reqTopic,JSON.stringify({token,hash}),{qos:1});});
-    const timer=setTimeout(()=>{if(!responded){responded=true; mqttClient.unsubscribe(resTopic); mqttClient.removeListener('message',handler); toast('ESP32 não respondeu','error');}},4000);
+    devices.forEach(id=>{mqttClient.subscribe(`sensors/${id}/auth/response`,{qos:1}); mqttClient.publish(`sensors/${id}/auth/request`,JSON.stringify({token,hash}),{qos:1});});
+    const to=setTimeout(()=>{if(!done){done=true; cleanupAll(); toast('Senha incorreta ou ESP32 não respondeu','error'); input.select();}},3500);
   };
 }
 document.getElementById('btnAddRoom').onclick=()=>requireAuth(()=>document.getElementById('roomModal').classList.add('open'));
 document.getElementById('btnMqttCfg').onclick=()=>requireAuth(()=>document.getElementById('mqttModal').classList.add('open'));
-const _del=(id)=>{rooms=rooms.filter(r=>r.id!==id);saveRooms();renderRooms();toast('Ambiente excluído','success');};
-window.deleteRoom=(id)=>requireAuth(()=>{if(confirm('Excluir ambiente?'))_del(id);});
+const _del=id=>{rooms=rooms.filter(r=>r.id!==id);saveRooms();renderRooms();toast('Excluído','success');};
+window.deleteRoom=id=>requireAuth(()=>{if(confirm('Excluir?'))_del(id);});
 
 </script>
 
