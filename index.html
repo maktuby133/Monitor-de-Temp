@@ -1316,10 +1316,64 @@ async function saveHist(id, t, h, ts) {
   };
 }
 
-async function getHist(id){if(!_hdb)await openHistDB();return new Promise(r=>{const tx=_hdb.transaction('history','readonly');tx.objectStore('history').index('device').getAll(IDBKeyRange.only(id)).onsuccess=e=>r(e.target.result.sort((a,b)=>a.ts-b.ts).slice(-HIST_MAX_POINTS))})}
+async function getHist(id){if(!_hdb)await openHistDB();return new Promise(r=>{const tx=_hdb.transaction('history','readonly');tx.objectStore('history').index('device').getAll(IDBKeyRange.only(id)).onsuccess=e=>r(e.target.result.sort((a,b)=>a.ts-b.ts))})}
+
+function aggregateByHour(data) {
+  const buckets = {};
+  data.forEach(p => {
+    const d = new Date(p.ts);
+    const key = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}h`;
+    if (!buckets[key]) buckets[key] = { temps:[], hums:[] };
+    buckets[key].temps.push(p.temp);
+    buckets[key].hums.push(p.hum);
+  });
+  return Object.entries(buckets).map(([label, v]) => ({
+    label,
+    temp: parseFloat((v.temps.reduce((a,b)=>a+b,0)/v.temps.length).toFixed(1)),
+    hum:  parseFloat((v.hums.reduce((a,b)=>a+b,0)/v.hums.length).toFixed(1)),
+  }));
+}
+
 document.getElementById('btnHistory').onclick=()=>{document.getElementById('historyModal').classList.add('open');const s=document.getElementById('histSelect');s.innerHTML=rooms.map(r=>`<option value="${r.id}">${r.label}</option>`).join('');if(rooms[0])loadHist(rooms[0].id);s.onchange=()=>loadHist(s.value)};
 function closeHistory(){document.getElementById('historyModal').classList.remove('open')}
-async function loadHist(id){const d=await getHist(id);const l=d.map(x=>new Date(x.ts).toLocaleTimeString());const t=d.map(x=>x.temp);const h=d.map(x=>x.hum);const c=document.getElementById('histChart');if(_hchart)_hchart.destroy();_hchart=new Chart(c,{type:'line',data:{labels:l,datasets:[{label:'Temp °C',data:t,borderColor:'#fb923c',backgroundColor:'rgba(251,146,60,.15)',tension:.3},{label:'Umid %',data:h,borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.15)',tension:.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8'}}},scales:{x:{ticks:{color:'#4a5a72'}},y:{ticks:{color:'#4a5a72'}}}}});const st=document.getElementById('histStats');if(d.length){const at=(t.reduce((a,b)=>a+b,0)/t.length).toFixed(1);const ah=(h.reduce((a,b)=>a+b,0)/h.length).toFixed(1);st.innerHTML=`<div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Temp</div><div style="font-size:1.3rem;font-weight:700;color:var(--warm)">${at}°C</div></div><div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Umid</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent)">${ah}%</div></div><div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Pontos</div><div style="font-size:1.3rem;font-weight:700">${d.length}</div></div>`}else{st.innerHTML='<div style="color:var(--text-3);grid-column:1/-1;text-align:center">Sem dados ainda</div>'}}
+async function loadHist(id) {
+  const raw = await getHist(id);
+  const d   = aggregateByHour(raw);
+  const l   = d.map(x => x.label);
+  const t   = d.map(x => x.temp);
+  const h   = d.map(x => x.hum);
+  const c   = document.getElementById('histChart');
+  if (_hchart) _hchart.destroy();
+  _hchart = new Chart(c, {
+    type: 'line',
+    data: { labels: l, datasets: [
+      { label:'Temp °C', data:t, borderColor:'#fb923c', backgroundColor:'rgba(251,146,60,.15)', tension:.3, pointRadius:3 },
+      { label:'Umid %',  data:h, borderColor:'#38bdf8', backgroundColor:'rgba(56,189,248,.15)', tension:.3, pointRadius:3 }
+    ]},
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ labels:{ color:'#94a3b8' } }, tooltip:{ callbacks:{ title: items => items[0].label } } },
+      scales:{
+        x:{ ticks:{ color:'#4a5a72', maxRotation:45 } },
+        y:{ ticks:{ color:'#4a5a72' } }
+      }
+    }
+  });
+  const st = document.getElementById('histStats');
+  if (d.length) {
+    const at = (t.reduce((a,b)=>a+b,0)/t.length).toFixed(1);
+    const ah = (h.reduce((a,b)=>a+b,0)/h.length).toFixed(1);
+    const tMax = Math.max(...t).toFixed(1);
+    const tMin = Math.min(...t).toFixed(1);
+    st.innerHTML = `
+      <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Temp</div><div style="font-size:1.3rem;font-weight:700;color:var(--warm)">${at}°C</div></div>
+      <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Umid</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent)">${ah}%</div></div>
+      <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Máx / Mín Temp</div><div style="font-size:1.1rem;font-weight:700;color:var(--warm)">${tMax}° / ${tMin}°</div></div>
+      <div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Horas registradas</div><div style="font-size:1.3rem;font-weight:700">${d.length}</div></div>`;
+  } else {
+    st.innerHTML = '<div style="color:var(--text-3);grid-column:1/-1;text-align:center">Sem dados ainda</div>';
+  }
+}
 openHistDB();
 
 </script>
@@ -1333,7 +1387,7 @@ openHistDB();
       <select id="histSelect" style="flex:1;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text-1)"></select>
     </div>
     <canvas id="histChart" height="280"></canvas>
-    <div id="histStats" style="margin-top:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
+    <div id="histStats" style="margin-top:20px;display:grid;grid-template-columns:repeat(4,1fr);gap:12px"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:24px">
       <button class="btn" onclick="closeHistory()">Fechar</button>
     </div>
