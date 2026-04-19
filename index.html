@@ -1238,33 +1238,6 @@ function closeHistory(){document.getElementById('historyModal').classList.remove
 async function loadHist(id){const d=await getHist(id);const l=d.map(x=>new Date(x.ts).toLocaleTimeString());const t=d.map(x=>x.temp);const h=d.map(x=>x.hum);const c=document.getElementById('histChart');if(_hchart)_hchart.destroy();_hchart=new Chart(c,{type:'line',data:{labels:l,datasets:[{label:'Temp °C',data:t,borderColor:'#fb923c',backgroundColor:'rgba(251,146,60,.15)',tension:.3},{label:'Umid %',data:h,borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.15)',tension:.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8'}}},scales:{x:{ticks:{color:'#4a5a72'}},y:{ticks:{color:'#4a5a72'}}}}});const st=document.getElementById('histStats');if(d.length){const at=(t.reduce((a,b)=>a+b,0)/t.length).toFixed(1);const ah=(h.reduce((a,b)=>a+b,0)/h.length).toFixed(1);st.innerHTML=`<div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Temp</div><div style="font-size:1.3rem;font-weight:700;color:var(--warm)">${at}°C</div></div><div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Umid</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent)">${ah}%</div></div><div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Pontos</div><div style="font-size:1.3rem;font-weight:700">${d.length}</div></div>`}else{st.innerHTML='<div style="color:var(--text-3);grid-column:1/-1;text-align:center">Sem dados ainda</div>'}}
 openHistDB();
 
-
-// AUTH VIA ESP32 - adicionado
-async function hashPwd(p){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(p));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
-function esp32Auth(cb){
-  const m=document.getElementById('pwdModal'), i=document.getElementById('pwdInput'), msg=document.getElementById('authMsg'), btn=document.getElementById('pwdOk');
-  i.value=''; msg.textContent=''; m.classList.add('open'); i.focus();
-  const close=()=>{m.classList.remove('open'); btn.onclick=null; document.getElementById('pwdCancel').onclick=null; btn.disabled=false; btn.textContent='Validar';};
-  document.getElementById('pwdCancel').onclick=close;
-  btn.onclick=async()=>{
-    const pw=i.value.trim(); if(!pw){toast('Digite a senha','error');return;}
-    if(!mqttClient||!mqttClient.connected){toast('MQTT desconectado','error');close();return;}
-    btn.disabled=true; btn.textContent='Validando...'; msg.textContent='Aguardando ESP32...';
-    const token=Math.random().toString(36).substr(2,8); const h=await hashPwd(pw);
-    let done=false;
-    const onMsg=(t,p)=>{if(t==='sensors/auth/response'&&!done){try{const d=JSON.parse(p.toString()); if(d.token===token){done=true; mqttClient.removeListener('message',onMsg); mqttClient.unsubscribe('sensors/auth/response'); if(d.ok){close(); cb();} else {msg.textContent='Senha incorreta'; btn.disabled=false; btn.textContent='Validar'; toast('Senha incorreta','error');}}}}catch(e){}}};
-    mqttClient.on('message',onMsg);
-    mqttClient.subscribe('sensors/auth/response',{qos:1},()=>{mqttClient.publish('sensors/auth/global',JSON.stringify({token,hash:h}),{qos:1});});
-    setTimeout(()=>{if(!done){done=true; mqttClient.removeListener('message',onMsg); mqttClient.unsubscribe('sensors/auth/response'); msg.textContent='Sem resposta'; btn.disabled=false; btn.textContent='Validar'; toast('ESP32 não respondeu','error');}},3500);
-  };
-}
-// sobrescreve botões
-const _origAdd = document.getElementById('btnAddRoom').onclick;
-document.getElementById('btnAddRoom').onclick = ()=>esp32Auth(()=>document.getElementById('roomModal').classList.add('open'));
-document.getElementById('btnMqttCfg').onclick = ()=>esp32Auth(()=>document.getElementById('mqttModal').classList.add('open'));
-const _delOrig = window.deleteRoom;
-window.deleteRoom = (id)=>esp32Auth(()=>{if(confirm('Excluir?')){_delOrig(id);}});
-
 </script>
 
 <!-- HISTORY MODAL -->
@@ -1279,22 +1252,6 @@ window.deleteRoom = (id)=>esp32Auth(()=>{if(confirm('Excluir?')){_delOrig(id);}}
     <div id="histStats" style="margin-top:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:24px">
       <button class="btn" onclick="closeHistory()">Fechar</button>
-    </div>
-  </div>
-</div>
-
-
-<div class="modal-overlay" id="pwdModal">
-  <div class="modal">
-    <h2>Autenticação ESP32</h2>
-    <div class="form-group">
-      <label>Senha do ESP32</label>
-      <input type="password" id="pwdInput" placeholder="Senha do portal AP">
-      <small id="authMsg" style="color:var(--text-2);margin-top:6px;display:block"></small>
-    </div>
-    <div class="modal-actions">
-      <button class="btn" id="pwdCancel">Cancelar</button>
-      <button class="btn primary" id="pwdOk">Validar</button>
     </div>
   </div>
 </div>
