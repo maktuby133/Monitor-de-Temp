@@ -873,7 +873,15 @@ function connectMQTT(broker, port, user, pass) {
   });
 
   mqttClient.on('error', err => { setBadge('error'); toast('Erro MQTT: ' + err.message, 'error'); });
-  mqttClient.on('close', () => { setBadge('disconnected'); toast('MQTT desconectado. Tentando reconectar...', 'info'); rooms.forEach(r => setOffline(r.id)); });
+  
+if (!mqttClient.once) {
+  mqttClient.once = function(event, handler) {
+    const wrapped = (...args) => { mqttClient.removeListener(event, wrapped); handler(...args); };
+    mqttClient.on(event, wrapped);
+  };
+}
+
+mqttClient.on('close', () => { setBadge('disconnected'); toast('MQTT desconectado. Tentando reconectar...', 'info'); rooms.forEach(r => setOffline(r.id)); });
   mqttClient.on('offline', () => setBadge('disconnected'));
 
   mqttClient.on('message', (topic, message) => {
@@ -1238,6 +1246,66 @@ function closeHistory(){document.getElementById('historyModal').classList.remove
 async function loadHist(id){const d=await getHist(id);const l=d.map(x=>new Date(x.ts).toLocaleTimeString());const t=d.map(x=>x.temp);const h=d.map(x=>x.hum);const c=document.getElementById('histChart');if(_hchart)_hchart.destroy();_hchart=new Chart(c,{type:'line',data:{labels:l,datasets:[{label:'Temp °C',data:t,borderColor:'#fb923c',backgroundColor:'rgba(251,146,60,.15)',tension:.3},{label:'Umid %',data:h,borderColor:'#38bdf8',backgroundColor:'rgba(56,189,248,.15)',tension:.3}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#94a3b8'}}},scales:{x:{ticks:{color:'#4a5a72'}},y:{ticks:{color:'#4a5a72'}}}}});const st=document.getElementById('histStats');if(d.length){const at=(t.reduce((a,b)=>a+b,0)/t.length).toFixed(1);const ah=(h.reduce((a,b)=>a+b,0)/h.length).toFixed(1);st.innerHTML=`<div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Temp</div><div style="font-size:1.3rem;font-weight:700;color:var(--warm)">${at}°C</div></div><div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Média Umid</div><div style="font-size:1.3rem;font-weight:700;color:var(--accent)">${ah}%</div></div><div style="background:var(--surface-2);padding:12px;border-radius:10px"><div style="font-size:.7rem;color:var(--text-2)">Pontos</div><div style="font-size:1.3rem;font-weight:700">${d.length}</div></div>`}else{st.innerHTML='<div style="color:var(--text-3);grid-column:1/-1;text-align:center">Sem dados ainda</div>'}}
 openHistDB();
 
+
+
+
+// ── AUTENTICAÇÃO VIA ESP32 ──
+async function requireAuth(action){
+  const modal = document.getElementById('pwdModal');
+  document.getElementById('pwdText').textContent = 'Digite a senha do ESP32 (mesma do modo AP) para continuar.';
+  document.getElementById('pwdCancel').style.display = 'inline-flex';
+  document.getElementById('pwdInput').value = '';
+  modal.classList.add('open');
+  document.getElementById('pwdInput').focus();
+  
+  return new Promise(res => {
+    document.getElementById('pwdOk').onclick = async () => {
+      const pwd = document.getElementById('pwdInput').value;
+      if (!pwd) { toast('Digite a senha','error'); return }
+      if (!mqttClient || !mqttClient.connected) { toast('MQTT desconectado','error'); return }
+      
+      const reqId = Math.random().toString(36).substring(2,9);
+      const respTopic = 'casa/auth/response/' + reqId;
+      
+      const timeout = setTimeout(() => {
+        mqttClient.unsubscribe(respTopic);
+        toast('ESP32 não respondeu','error');
+        res(false);
+      }, 5000);
+      
+      mqttClient.subscribe(respTopic, {qos:0}, (err) => {
+        if (err) { clearTimeout(timeout); toast('Erro MQTT','error'); return }
+        mqttClient.once('message', (topic, payload) => {
+          if (topic === respTopic) {
+            clearTimeout(timeout);
+            mqttClient.unsubscribe(respTopic);
+            try {
+              const data = JSON.parse(payload.toString());
+              if (data.ok) {
+                modal.classList.remove('open');
+                action();
+                res(true);
+              } else {
+                toast('Senha incorreta','error');
+                res(false);
+              }
+            } catch(e) { toast('Resposta inválida','error') }
+          }
+        });
+        // publica pedido
+        mqttClient.publish('casa/auth/request', JSON.stringify({id:reqId,password:pwd}), {qos:0,retain:false});
+      });
+    };
+    document.getElementById('pwdCancel').onclick = () => { modal.classList.remove('open'); res(false); };
+  });
+}
+// remove ensurePassword inicial
+document.getElementById('btnAddRoom').onclick = () => requireAuth(()=>{document.getElementById('roomModal').classList.add('open')});
+document.getElementById('btnMqttCfg').onclick = () => requireAuth(()=>{document.getElementById('mqttModal').classList.add('open')});
+window.deleteRoom = (id) => requireAuth(()=>{ 
+  if (confirm('Excluir ambiente?')) { rooms = rooms.filter(r=>r.id!==id); saveRooms(); renderRooms(); toast('Ambiente excluído','success') }
+});
+
 </script>
 
 <!-- HISTORY MODAL -->
@@ -1252,6 +1320,20 @@ openHistDB();
     <div id="histStats" style="margin-top:20px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px"></div>
     <div style="display:flex;justify-content:flex-end;margin-top:24px">
       <button class="btn" onclick="closeHistory()">Fechar</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ADMIN PASSWORD MODAL -->
+<div class="modal-overlay" id="pwdModal">
+  <div class="modal" style="max-width:400px">
+    <h2>🔒 Proteção</h2>
+    <p id="pwdText">Defina uma senha para proteger alterações.</p>
+    <input type="password" id="pwdInput" placeholder="Senha (mín. 4 caracteres)" style="width:100%;margin:16px 0;padding:10px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;color:var(--text-1)">
+    <div style="display:flex;gap:12px;justify-content:flex-end">
+      <button class="btn" id="pwdCancel" style="display:none">Cancelar</button>
+      <button class="btn primary" id="pwdOk">Confirmar</button>
     </div>
   </div>
 </div>
