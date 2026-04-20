@@ -1370,11 +1370,36 @@ renderRooms();
 window.addEventListener('resize', calcCardSize);
 ensureMqtt();
 
+// ── Pausa/retoma timeouts quando página vai para background/foreground ──
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    // Página em background — cancela todos os timeouts para não marcar erro
+    rooms.forEach(r => {
+      if (r._timeout) { clearTimeout(r._timeout); r._timeout = null; }
+    });
+  } else {
+    // Voltou ao foreground — recalcula tempo restante baseado no lastUpdate
+    const now = Date.now();
+    rooms.forEach(r => {
+      if (r.status !== 'online') return;
+      const elapsed = now - (r.lastUpdate || now);
+      const remaining = TIMEOUT_MS - elapsed;
+      if (remaining <= 0) {
+        // Já passou tempo demais — não marca erro ainda, aguarda próximo dado
+        // Só marca erro se realmente não chegar mais nada
+        r._timeout = setTimeout(() => setOffline(r.id), TIMEOUT_MS);
+      } else {
+        r._timeout = setTimeout(() => setOffline(r.id), remaining);
+      }
+    });
+  }
+});
+
 // ── HISTÓRICO via Google Sheets ──
 let _hchart;
 
 // Cole aqui a mesma URL do Apps Script configurada no ESP32
-const SHEETS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwKo5GPlEyXh1LSsBV0-Av3snn9ZSXdEV691DeGHccUQRK6xjojiK8vGPwQPcYH-mgc/exec';
+const SHEETS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw6q5vC1BJnUI3txiL5TATUr1-yhE9ODizv4fBq4zAMk3XO3iUwWTY4vIWq6eaw_g/exec';
 
 async function getHistSheets(deviceId, limit) {
   const url = `${SHEETS_SCRIPT_URL}?device_id=${encodeURIComponent(deviceId)}&limit=${limit || 168}`;
