@@ -1438,11 +1438,21 @@ function getHistSheets(deviceId, limit) {
   });
 }
 
-function aggregateByHour(data) {
+function aggregateByHour(data, limitRows) {
+  // Para períodos curtos (até 12h / 288 leituras), exibe cada leitura individualmente
+  // Para períodos longos (24h+), agrega por hora para evitar excesso de pontos
+  if (!limitRows || limitRows <= 288) {
+    return data.map(p => ({
+      label: p.ts ? p.ts.substring(11, 16) : '?', // exibe HH:mm
+      temp: Number(p.temp),
+      hum:  Number(p.hum),
+    }));
+  }
+  // Períodos longos: agrega por hora
   const buckets = {};
   data.forEach(p => {
     // ts vem como string "dd/MM/yyyy HH:mm:ss" do Sheets
-    const key = p.ts ? p.ts.substring(0, 13).replace(' ', ' ') + 'h' : '?';
+    const key = p.ts ? p.ts.substring(0, 13) + 'h' : '?';
     if (!buckets[key]) buckets[key] = { temps:[], hums:[] };
     buckets[key].temps.push(Number(p.temp));
     buckets[key].hums.push(Number(p.hum));
@@ -1521,7 +1531,7 @@ async function loadHist(id, limit) {
 
   try {
     const raw = await getHistSheets(id, limit);
-    const d   = aggregateByHour(raw);
+    const d   = aggregateByHour(raw, _histCurrentLimit);
 
     if (!d.length) {
       st.innerHTML = '<div style="color:var(--text-3);grid-column:1/-1;text-align:center;padding:20px">Sem dados ainda no Sheets.</div>';
