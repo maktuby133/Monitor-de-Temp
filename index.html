@@ -1458,7 +1458,7 @@ function aggregateByHour(data, limitRows) {
     buckets[key].hums.push(Number(p.hum));
   });
   return Object.entries(buckets).map(([label, v]) => ({
-    label,
+    label: label, // ex: "21/04/2026 14h"
     temp: parseFloat((v.temps.reduce((a,b)=>a+b,0)/v.temps.length).toFixed(1)),
     hum:  parseFloat((v.hums.reduce((a,b)=>a+b,0)/v.hums.length).toFixed(1)),
   }));
@@ -1506,7 +1506,7 @@ function chartOpts(color, label, unit) {
         titleColor: '#94a3b8', bodyColor: '#f0f6ff', padding: 10 }
       },
       scales: {
-        x: { ticks: { color: '#4a5a72', maxTicksLimit: 8, maxRotation: 0 }, grid: { color: 'rgba(56,189,248,.05)' } },
+        x: { type: 'category', ticks: { color: '#4a5a72', maxTicksLimit: 10, maxRotation: 0, autoSkip: true }, grid: { color: 'rgba(56,189,248,.05)' } },
         y: { ticks: { color: '#4a5a72' }, grid: { color: 'rgba(56,189,248,.05)' } }
       }
     }
