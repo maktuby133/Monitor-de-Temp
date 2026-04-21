@@ -1438,34 +1438,24 @@ function getHistSheets(deviceId, limit) {
   });
 }
 
-function aggregateByHour(data, limitRows) {
-  // Para períodos curtos (até 12h / 288 leituras), exibe cada leitura individualmente
-  // Para períodos longos (24h+), agrega por hora para evitar excesso de pontos
-  if (!limitRows || limitRows <= 288) {
-    return data.map(p => ({
-      label: p.ts ? p.ts.substring(11, 16) : '?', // exibe HH:mm
+function aggregateByHour(data) {
+  // Sempre leituras individuais. Label = "HH:mm" (eixo X limpo).
+  // tsShort = "dd/MM HH:mm" para o tooltip.
+  return data.map(p => {
+    const ts     = p.ts ? String(p.ts).trim() : '';
+    const hhmm   = ts.length >= 16 ? ts.substring(11, 16) : ts;
+    const ddmm   = ts.length >= 10 ? ts.substring(0, 5)   : '';
+    return {
+      label:   hhmm || '?',
+      tsShort: (ddmm ? ddmm + ' ' + hhmm : hhmm) || '?',
       temp: Number(p.temp),
       hum:  Number(p.hum),
-    }));
-  }
-  // Períodos longos: agrega por hora
-  const buckets = {};
-  data.forEach(p => {
-    // ts vem como string "dd/MM/yyyy HH:mm:ss" do Sheets
-    const key = p.ts ? p.ts.substring(0, 13) + 'h' : '?';
-    if (!buckets[key]) buckets[key] = { temps:[], hums:[] };
-    buckets[key].temps.push(Number(p.temp));
-    buckets[key].hums.push(Number(p.hum));
+    };
   });
-  return Object.entries(buckets).map(([label, v]) => ({
-    label: label, // ex: "21/04/2026 14h"
-    temp: parseFloat((v.temps.reduce((a,b)=>a+b,0)/v.temps.length).toFixed(1)),
-    hum:  parseFloat((v.hums.reduce((a,b)=>a+b,0)/v.hums.length).toFixed(1)),
-  }));
 }
 
 let _hchartTemp = null, _hchartHum = null;
-let _histCurrentId = null, _histCurrentLimit = 48;
+let _histCurrentId = null, _histCurrentLimit = 500;
 
 document.getElementById('btnHistory').onclick = () => {
   document.getElementById('historyModal').classList.add('open');
@@ -1488,7 +1478,7 @@ document.addEventListener('click', e => {
   if (_histCurrentId) loadHist(_histCurrentId, _histCurrentLimit);
 });
 
-function chartOpts(color, label, unit) {
+function chartOpts(color, label, unit, tsShorts) {
   return {
     type: 'line',
     data: { labels: [], datasets: [{ label, data: [], borderColor: color,
@@ -1500,13 +1490,27 @@ function chartOpts(color, label, unit) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: {
-          label: ctx => ` ${ctx.parsed.y.toFixed(1)}${unit}`
-        }, backgroundColor: '#0d1628', borderColor: color, borderWidth: 1,
-        titleColor: '#94a3b8', bodyColor: '#f0f6ff', padding: 10 }
+        tooltip: {
+          callbacks: {
+            title: ctx => tsShorts ? (tsShorts[ctx[0].dataIndex] || ctx[0].label) : ctx[0].label,
+            label: ctx => ` ${ctx.parsed.y.toFixed(1)}${unit}`
+          },
+          backgroundColor: '#0d1628', borderColor: color, borderWidth: 1,
+          titleColor: '#94a3b8', bodyColor: '#f0f6ff', padding: 10
+        }
       },
       scales: {
-        x: { type: 'category', ticks: { color: '#4a5a72', maxTicksLimit: 10, maxRotation: 0, autoSkip: true }, grid: { color: 'rgba(56,189,248,.05)' } },
+        x: {
+          type: 'category',
+          ticks: {
+            color: '#4a5a72',
+            maxTicksLimit: 12,
+            maxRotation: 0,
+            autoSkip: true,
+            autoSkipPadding: 10
+          },
+          grid: { color: 'rgba(56,189,248,.05)' }
+        },
         y: { ticks: { color: '#4a5a72' }, grid: { color: 'rgba(56,189,248,.05)' } }
       }
     }
@@ -1538,9 +1542,10 @@ async function loadHist(id, limit) {
       return;
     }
 
-    const labels = d.map(x => x.label);
-    const temps  = d.map(x => x.temp);
-    const hums   = d.map(x => x.hum);
+    const labels   = d.map(x => x.label);
+    const tsShorts = d.map(x => x.tsShort);
+    const temps    = d.map(x => x.temp);
+    const hums     = d.map(x => x.hum);
 
     // Stats
     const tMed = (temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1);
@@ -1570,14 +1575,14 @@ async function loadHist(id, limit) {
 
     // Temp chart
     const ctxT = document.getElementById('histChartTemp');
-    const cfgT = chartOpts('#fb923c', 'Temp °C', '°C');
+    const cfgT = chartOpts('#fb923c', 'Temp °C', '°C', tsShorts);
     cfgT.data.labels = labels;
     cfgT.data.datasets[0].data = temps;
     _hchartTemp = new Chart(ctxT, cfgT);
 
     // Hum chart
     const ctxH = document.getElementById('histChartHum');
-    const cfgH = chartOpts('#38bdf8', 'Umid %', '%');
+    const cfgH = chartOpts('#38bdf8', 'Umid %', '%', tsShorts);
     cfgH.data.labels = labels;
     cfgH.data.datasets[0].data = hums;
     _hchartHum = new Chart(ctxH, cfgH);
@@ -1611,10 +1616,10 @@ async function loadHist(id, limit) {
       <div>
         <div style="font-size:.68rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Período</div>
         <div style="display:flex;gap:6px" id="histPeriodBtns">
-          <button class="hist-period-btn active" data-limit="48">2h</button>
+          <button class="hist-period-btn" data-limit="48">2h</button>
           <button class="hist-period-btn" data-limit="144">6h</button>
           <button class="hist-period-btn" data-limit="288">12h</button>
-          <button class="hist-period-btn" data-limit="500">24h</button>
+          <button class="hist-period-btn active" data-limit="500">24h</button>
           <button class="hist-period-btn" data-limit="1000">48h</button>
         </div>
       </div>
