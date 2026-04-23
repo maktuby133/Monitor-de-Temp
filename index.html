@@ -1559,7 +1559,7 @@ function aggregateByHour(data) {
 }
 
 let _hchartTemp = null, _hchartHum = null;
-let _histCurrentId = null, _histCurrentLimit = 48;
+let _histCurrentId = null, _histCurrentLimit = 360;
 
 document.getElementById('btnHistory').onclick = () => {
   document.getElementById('historyModal').classList.add('open');
@@ -1705,11 +1705,10 @@ async function loadHist(id, limit) {
       <div>
         <div style="font-size:.68rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Período</div>
         <div style="display:flex;gap:6px" id="histPeriodBtns">
-          <button class="hist-period-btn active" data-limit="48">2h</button>
-          <button class="hist-period-btn" data-limit="144">6h</button>
-          <button class="hist-period-btn" data-limit="288">12h</button>
-          <button class="hist-period-btn" data-limit="500">24h</button>
-          <button class="hist-period-btn" data-limit="1000">48h</button>
+          <button class="hist-period-btn active" data-limit="360">30min</button>
+          <button class="hist-period-btn" data-limit="720">1h</button>
+          <button class="hist-period-btn" data-limit="1440">2h</button>
+          <button class="hist-period-btn" data-limit="2000">Tudo</button>
         </div>
       </div>
     </div>
