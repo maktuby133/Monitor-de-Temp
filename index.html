@@ -334,41 +334,34 @@ header {
 .toast.info    { background:var(--accent-dim); border-color:var(--border-h); color:var(--accent); }
 
 @media (max-width:600px) {
-  /* Grid: 2 cards por linha no mobile */
-  .rooms-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; padding: 0 2px; }
-
-  /* Card compacto */
-  .room-card  { padding: 12px 10px; border-radius: 14px; }
-  .card-head  { margin-bottom: 10px; }
-  .room-icon  { width: 32px; height: 32px; font-size: .95rem; border-radius: 9px; }
-  .room-label { font-size: .72rem; }
-  .last-update { font-size: .58rem; }
-
-  /* Métricas em coluna única para caber no card pequeno */
-  .metrics      { grid-template-columns: 1fr; gap: 8px; margin-bottom: 12px; }
-  .metric       { padding: 8px 10px; border-radius: 10px; }
-  .metric-value { font-size: 1.6rem; }
-  .metric-label { font-size: .58rem; }
-  .metric-unit  { font-size: .7rem; }
-  .bar-wrap     { margin-top: 4px; }
-
-  /* Rodapé */
-  .card-footer { padding-top: 8px; gap: 6px; }
-  .status-chip { font-size: .6rem; padding: 3px 7px; }
-  .icon-btn    { width: 26px; height: 26px; font-size: .72rem; }
-
-  /* Header — tudo numa linha só, sem quebra */
-  header { padding: 14px 0 16px; margin-bottom: 16px; flex-wrap: nowrap; gap: 8px; }
-  .brand-icon { width: 32px; height: 32px; font-size: 1rem; border-radius: 8px; flex-shrink: 0; }
-  .brand h1   { font-size: .95rem; }
-  .brand p    { display: none; }
-  .header-actions { flex-wrap: nowrap; gap: 6px; flex-shrink: 0; }
-
-  /* Badge e botões menores */
-  .conn-badge { padding: 6px 10px; font-size: .68rem; gap: 5px; }
-  .dot        { width: 6px; height: 6px; }
-  .btn        { padding: 6px 10px; font-size: .72rem; gap: 5px; }
-  .btn svg    { width: 12px; height: 12px; }
+  .rooms-grid { grid-template-columns:1fr; }
+  header { flex-direction:column; align-items:flex-start; }
+  .header-actions {
+    width: 100%;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .header-actions .conn-badge {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: .72rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .header-actions .btn {
+    flex: 1;
+    min-width: 0;
+    justify-content: center;
+    padding: 8px 6px;
+    font-size: .72rem;
+    white-space: nowrap;
+  }
+  .header-actions .btn svg { display: none; }
 }
 
 
