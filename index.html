@@ -198,7 +198,7 @@ header {
   margin-top:6px; border:1px solid transparent;
 }
 .status-chip.online  { background:rgba(52,211,153,.1); border-color:rgba(52,211,153,.25); color:var(--green); }
-.status-chip.offline { background:rgba(248,113,113,.1); border-color:rgba(248,113,113,.25); color:var(--red); }
+.status-chip.offline { background:rgba(100,116,139,.1); border-color:rgba(100,116,139,.3); color:#64748b; }
 .status-chip.error   { background:rgba(251,146,60,.12); border-color:rgba(251,146,60,.35); color:var(--warm); animation:alertPulse 1.4s ease infinite; }
 .status-chip.waiting { background:rgba(148,163,184,.07); border-color:rgba(148,163,184,.15); color:var(--text-3); }
 .status-chip .sdot   { width:5px; height:5px; border-radius:50%; background:currentColor; }
@@ -785,6 +785,7 @@ function updateCardData(roomId, data) {
     const errIcon = card.querySelector('.sensor-error-icon');
     if (errIcon) errIcon.remove();
     room._sensorErrorToasted = false;
+    room._offlineToasted = false;
     const tv  = document.getElementById(`temp-${roomId}`);
     const hv  = document.getElementById(`hum-${roomId}`);
     const tb  = document.getElementById(`tempbar-${roomId}`);
@@ -840,21 +841,23 @@ function setSensorError(roomId) {
 function setOffline(roomId) {
   const room = rooms.find(r => r.id === roomId);
   if (!room) return;
-  room.status = 'sensor-error';
+  room.status = 'offline';
   const card = document.getElementById(`card-${roomId}`);
   if (card) {
-    card.className = 'room-card sensor-error';
+    card.className = 'room-card offline';
     const chip = card.querySelector('.status-chip');
-    if (chip) { chip.className = 'status-chip error'; chip.innerHTML = '<div class="sdot"></div> ⚠ Erro no sensor'; }
+    if (chip) { chip.className = 'status-chip offline'; chip.innerHTML = '<div class="sdot"></div> 📡 Sem sinal'; }
     const upd = document.getElementById(`upd-${roomId}`);
-    if (upd) upd.textContent = 'Sem resposta do sensor';
-    // Adiciona ícone de alerta no room-icon se ainda não existir
+    if (upd) upd.textContent = 'ESP32 desconectado';
     const icon = card.querySelector('.room-icon');
+    // Remove ícone antigo (sensor error) e coloca ícone de offline
+    const oldIcon = icon ? icon.querySelector('.sensor-error-icon') : null;
+    if (oldIcon) oldIcon.remove();
     if (icon && !icon.querySelector('.sensor-error-icon')) {
       const errIcon = document.createElement('span');
       errIcon.className = 'sensor-error-icon';
-      errIcon.title = 'Sensor sem comunicação';
-      errIcon.textContent = '⚠️';
+      errIcon.title = 'ESP32 sem comunicação';
+      errIcon.textContent = '📡';
       icon.appendChild(errIcon);
     }
     const tv = document.getElementById(`temp-${roomId}`);
@@ -867,7 +870,10 @@ function setOffline(roomId) {
     if (hb) hb.style.width = '0%';
   }
   saveRooms();
-  toast(`⚠️ Erro no sensor: ${room.label} parou de responder`, 'error', 6000);
+  if (!room._offlineToasted) {
+    room._offlineToasted = true;
+    toast(`📡 ${room.label}: ESP32 sem sinal (sem dados há 30s)`, 'error', 6000);
+  }
 }
 
 function addRoom(label, id, icon) {
@@ -898,6 +904,32 @@ function removeRoom(roomId) {
 /* ═════════════════════════════════════════
    MQTT
 ═════════════════════════════════════════ */
+// Re-verifica senha de todos os rooms a cada 60s para detectar mudança de senha no ESP32
+let _recheckTimer = null;
+function scheduleRecheckAll() {
+  if (_recheckTimer) clearInterval(_recheckTimer);
+  _recheckTimer = setInterval(async () => {
+    if (!mqttClient || !mqttClient.connected) return;
+    for (const room of rooms) {
+      // Não re-verifica rooms bloqueados nem waiting
+      if (room.status !== 'online') continue;
+      // Obtém a senha salva no localStorage para este room
+      const savedPass = _roomPassCache[room.id];
+      if (!savedPass) continue;
+      try {
+        const token = 'recheck_' + room.id;
+        const hash = await sha256(savedPass);
+        const reqTopic = `sensors/${room.id}/auth/request`;
+        const payload = JSON.stringify({ token, hash });
+        mqttClient.publish(reqTopic, payload, { qos: 1 });
+      } catch(e) {}
+    }
+  }, 60000); // a cada 60 segundos
+}
+
+// Cache de senhas em memória para re-verificação (nunca vai ao localStorage)
+const _roomPassCache = {};
+
 function connectMQTT(broker, port, user, pass) {
   if (mqttClient) { try { mqttClient.end(true); } catch(e){} mqttClient = null; }
 
@@ -930,10 +962,19 @@ function connectMQTT(broker, port, user, pass) {
       mqttClient.subscribe(`sensors/${r.id}/auth/response`, { qos:1 });
     });
     closeMqttModal();
+    // Inicia re-verificação periódica de senha para rooms já cadastrados
+    scheduleRecheckAll();
   });
 
   mqttClient.on('error', err => { setBadge('error'); toast('Erro MQTT: ' + err.message, 'error'); });
-  mqttClient.on('close', () => { setBadge('disconnected'); toast('MQTT desconectado. Tentando reconectar...', 'info'); rooms.forEach(r => setOffline(r.id)); });
+  mqttClient.on('close', () => {
+    setBadge('disconnected');
+    toast('MQTT desconectado. Tentando reconectar...', 'info');
+    if (_recheckTimer) { clearInterval(_recheckTimer); _recheckTimer = null; }
+    rooms.forEach(r => {
+      if (r.status === 'online') setOffline(r.id);
+    });
+  });
   mqttClient.on('offline', () => setBadge('disconnected'));
 
   mqttClient.on('message', (topic, message) => {
@@ -962,6 +1003,8 @@ function connectMQTT(broker, port, user, pass) {
       // msgType === 'data'
       const room = rooms.find(r => r.id === deviceId);
       if (room) {
+        // Se o room está bloqueado por senha inválida, oculta dados mas mantém card
+        if (room._authLocked) return;
         if (data.sensor_error) setSensorError(room.id);
         else updateCardData(room.id, data);
       } else console.warn(`[MQTT] Nenhum ambiente cadastrado para device_id="${deviceId}"`);
@@ -1106,6 +1149,7 @@ document.getElementById('btnSaveRoom').addEventListener('click', () => {
     try {
       const ok = await authWithDevice(rawId, devPass);
       if (ok) {
+        _roomPassCache[rawId] = devPass;  // cache para re-verificação periódica
         addRoom(label, rawId, selectedIcon);
         closeModal();
       } else {
@@ -1157,12 +1201,61 @@ function authWithDevice(roomId, password) {
 // Chamado pelo handler de mensagens MQTT quando chega auth/response
 function handleAuthResponse(data) {
   const token = data.token;
-  if (!token || !_authPending[token]) return;
-  const { resolve, reject, timer } = _authPending[token];
-  clearTimeout(timer);
-  delete _authPending[token];
-  if (data.ok) resolve(true);
-  else resolve(false);
+  // Resposta de uma autenticação pendente (ex: adicionar room, confirmar ação)
+  if (token && _authPending[token]) {
+    const { resolve, reject, timer } = _authPending[token];
+    clearTimeout(timer);
+    delete _authPending[token];
+    if (data.ok) resolve(true);
+    else resolve(false);
+    return;
+  }
+  // Resposta de uma re-verificação periódica de rooms já cadastrados
+  // Se ok=false, a senha do ESP32 mudou — bloqueia exibição dos dados
+  if (token && token.startsWith('recheck_')) {
+    const roomId = token.replace('recheck_', '');
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+    if (!data.ok) {
+      if (!room._authLocked) {
+        room._authLocked = true;
+        setAuthLocked(roomId);
+      }
+    } else {
+      if (room._authLocked) {
+        room._authLocked = false;
+        setAuthUnlocked(roomId);
+      }
+    }
+  }
+}
+
+function setAuthLocked(roomId) {
+  const room = rooms.find(r => r.id === roomId);
+  if (!room) return;
+  const card = document.getElementById(`card-${roomId}`);
+  if (card) {
+    card.className = 'room-card offline';
+    const chip = card.querySelector('.status-chip');
+    if (chip) { chip.className = 'status-chip offline'; chip.innerHTML = '<div class="sdot"></div> 🔒 Senha alterada'; }
+    const upd = document.getElementById(`upd-${roomId}`);
+    if (upd) upd.textContent = 'Acesso negado — senha foi alterada no ESP32';
+    const tv = document.getElementById(`temp-${roomId}`);
+    const hv = document.getElementById(`hum-${roomId}`);
+    const tb = document.getElementById(`tempbar-${roomId}`);
+    const hb = document.getElementById(`humbar-${roomId}`);
+    if (tv) tv.textContent = '🔒';
+    if (hv) hv.textContent = '🔒';
+    if (tb) tb.style.width = '0%';
+    if (hb) hb.style.width = '0%';
+  }
+  toast(`🔒 ${room.label}: senha alterada no ESP32. Remova e re-adicione o dispositivo.`, 'error', 8000);
+}
+
+function setAuthUnlocked(roomId) {
+  const room = rooms.find(r => r.id === roomId);
+  if (!room) return;
+  toast(`✅ ${room.label}: acesso restaurado.`, 'success', 4000);
 }
 
 /* ── sha256 helper ── */
@@ -1439,23 +1532,23 @@ function getHistSheets(deviceId, limit) {
 }
 
 function aggregateByHour(data) {
-  // Sempre leituras individuais. Label = "HH:mm" (eixo X limpo).
-  // tsShort = "dd/MM HH:mm" para o tooltip.
-  return data.map(p => {
-    const ts     = p.ts ? String(p.ts).trim() : '';
-    const hhmm   = ts.length >= 16 ? ts.substring(11, 16) : ts;
-    const ddmm   = ts.length >= 10 ? ts.substring(0, 5)   : '';
-    return {
-      label:   hhmm || '?',
-      tsShort: (ddmm ? ddmm + ' ' + hhmm : hhmm) || '?',
-      temp: Number(p.temp),
-      hum:  Number(p.hum),
-    };
+  const buckets = {};
+  data.forEach(p => {
+    // ts vem como string "dd/MM/yyyy HH:mm:ss" do Sheets
+    const key = p.ts ? p.ts.substring(0, 13).replace(' ', ' ') + 'h' : '?';
+    if (!buckets[key]) buckets[key] = { temps:[], hums:[] };
+    buckets[key].temps.push(Number(p.temp));
+    buckets[key].hums.push(Number(p.hum));
   });
+  return Object.entries(buckets).map(([label, v]) => ({
+    label,
+    temp: parseFloat((v.temps.reduce((a,b)=>a+b,0)/v.temps.length).toFixed(1)),
+    hum:  parseFloat((v.hums.reduce((a,b)=>a+b,0)/v.hums.length).toFixed(1)),
+  }));
 }
 
 let _hchartTemp = null, _hchartHum = null;
-let _histCurrentId = null, _histCurrentLimit = 500;
+let _histCurrentId = null, _histCurrentLimit = 48;
 
 document.getElementById('btnHistory').onclick = () => {
   document.getElementById('historyModal').classList.add('open');
@@ -1478,7 +1571,7 @@ document.addEventListener('click', e => {
   if (_histCurrentId) loadHist(_histCurrentId, _histCurrentLimit);
 });
 
-function chartOpts(color, label, unit, tsShorts) {
+function chartOpts(color, label, unit) {
   return {
     type: 'line',
     data: { labels: [], datasets: [{ label, data: [], borderColor: color,
@@ -1490,27 +1583,13 @@ function chartOpts(color, label, unit, tsShorts) {
       interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
-        tooltip: {
-          callbacks: {
-            title: ctx => tsShorts ? (tsShorts[ctx[0].dataIndex] || ctx[0].label) : ctx[0].label,
-            label: ctx => ` ${ctx.parsed.y.toFixed(1)}${unit}`
-          },
-          backgroundColor: '#0d1628', borderColor: color, borderWidth: 1,
-          titleColor: '#94a3b8', bodyColor: '#f0f6ff', padding: 10
-        }
+        tooltip: { callbacks: {
+          label: ctx => ` ${ctx.parsed.y.toFixed(1)}${unit}`
+        }, backgroundColor: '#0d1628', borderColor: color, borderWidth: 1,
+        titleColor: '#94a3b8', bodyColor: '#f0f6ff', padding: 10 }
       },
       scales: {
-        x: {
-          type: 'category',
-          ticks: {
-            color: '#4a5a72',
-            maxTicksLimit: 12,
-            maxRotation: 0,
-            autoSkip: true,
-            autoSkipPadding: 10
-          },
-          grid: { color: 'rgba(56,189,248,.05)' }
-        },
+        x: { ticks: { color: '#4a5a72', maxTicksLimit: 8, maxRotation: 0 }, grid: { color: 'rgba(56,189,248,.05)' } },
         y: { ticks: { color: '#4a5a72' }, grid: { color: 'rgba(56,189,248,.05)' } }
       }
     }
@@ -1535,17 +1614,16 @@ async function loadHist(id, limit) {
 
   try {
     const raw = await getHistSheets(id, limit);
-    const d   = aggregateByHour(raw, _histCurrentLimit);
+    const d   = aggregateByHour(raw);
 
     if (!d.length) {
       st.innerHTML = '<div style="color:var(--text-3);grid-column:1/-1;text-align:center;padding:20px">Sem dados ainda no Sheets.</div>';
       return;
     }
 
-    const labels   = d.map(x => x.label);
-    const tsShorts = d.map(x => x.tsShort);
-    const temps    = d.map(x => x.temp);
-    const hums     = d.map(x => x.hum);
+    const labels = d.map(x => x.label);
+    const temps  = d.map(x => x.temp);
+    const hums   = d.map(x => x.hum);
 
     // Stats
     const tMed = (temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1);
@@ -1575,14 +1653,14 @@ async function loadHist(id, limit) {
 
     // Temp chart
     const ctxT = document.getElementById('histChartTemp');
-    const cfgT = chartOpts('#fb923c', 'Temp °C', '°C', tsShorts);
+    const cfgT = chartOpts('#fb923c', 'Temp °C', '°C');
     cfgT.data.labels = labels;
     cfgT.data.datasets[0].data = temps;
     _hchartTemp = new Chart(ctxT, cfgT);
 
     // Hum chart
     const ctxH = document.getElementById('histChartHum');
-    const cfgH = chartOpts('#38bdf8', 'Umid %', '%', tsShorts);
+    const cfgH = chartOpts('#38bdf8', 'Umid %', '%');
     cfgH.data.labels = labels;
     cfgH.data.datasets[0].data = hums;
     _hchartHum = new Chart(ctxH, cfgH);
@@ -1616,10 +1694,10 @@ async function loadHist(id, limit) {
       <div>
         <div style="font-size:.68rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Período</div>
         <div style="display:flex;gap:6px" id="histPeriodBtns">
-          <button class="hist-period-btn" data-limit="48">2h</button>
+          <button class="hist-period-btn active" data-limit="48">2h</button>
           <button class="hist-period-btn" data-limit="144">6h</button>
           <button class="hist-period-btn" data-limit="288">12h</button>
-          <button class="hist-period-btn active" data-limit="500">24h</button>
+          <button class="hist-period-btn" data-limit="500">24h</button>
           <button class="hist-period-btn" data-limit="1000">48h</button>
         </div>
       </div>
