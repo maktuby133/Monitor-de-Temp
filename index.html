@@ -595,6 +595,7 @@ let mqttClient = null;
 let rooms = JSON.parse(localStorage.getItem('amb_rooms') || '[]');
 let selectedIcon = '🏠';
 const TIMEOUT_MS = 30000; // 30s sem dados → offline
+let mqttConnectTime = 0;  // momento em que o MQTT conectou — usado para ignorar mensagens retained
 
 // Credenciais MQTT ficam APENAS em memória — nunca no localStorage
 let _mqttCfg = { broker:'', port:8884, user:'', pass:'' };
@@ -954,6 +955,7 @@ function connectMQTT(broker, port, user, pass) {
   });
 
   mqttClient.on('connect', () => {
+    mqttConnectTime = Date.now(); // marca o momento da conexão para filtrar retained
     setBadge('connected');
     toast('MQTT conectado!', 'success');
     // Subscreve tópicos de dados e auth de todos os devices
@@ -1005,6 +1007,15 @@ function connectMQTT(broker, port, user, pass) {
       if (room) {
         // Se o room está bloqueado por senha inválida, oculta dados mas mantém card
         if (room._authLocked) return;
+        // Ignora mensagens retidas (retained) entregues logo após a conexão.
+        // O broker MQTT entrega a última mensagem salva imediatamente ao subscrever,
+        // mesmo que o ESP32 esteja desligado. Mensagens nos primeiros 3s após conectar
+        // são tratadas como retained e descartadas — o device fica em "Aguardando"
+        // até chegar um dado ao vivo.
+        if (Date.now() - mqttConnectTime < 3000) {
+          console.log(`[MQTT] Mensagem retained ignorada para device "${deviceId}" (chegou logo após conectar)`);
+          return;
+        }
         if (data.sensor_error) setSensorError(room.id);
         else updateCardData(room.id, data);
       } else console.warn(`[MQTT] Nenhum ambiente cadastrado para device_id="${deviceId}"`);
