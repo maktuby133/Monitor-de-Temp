@@ -15,6 +15,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  /* ── Tema escuro (padrão) ── */
   --bg:          #070d1a;
   --surface:     #0d1628;
   --surface-2:   #121e35;
@@ -23,8 +24,8 @@
   --accent:      #38bdf8;
   --accent-dim:  rgba(56,189,248,.15);
   --accent-glow: rgba(56,189,248,.25);
-  --warm:        #fb923c;
-  --warm-dim:    rgba(251,146,60,.15);
+  --warm:        #f97316;
+  --warm-dim:    rgba(249,115,22,.15);
   --cool:        #818cf8;
   --cool-dim:    rgba(129,140,248,.15);
   --green:       #34d399;
@@ -36,6 +37,31 @@
   --radius-sm:   10px;
   --shadow:      0 8px 32px rgba(0,0,0,.6);
   --shadow-card: 0 4px 24px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.04) inset;
+  --theme-icon:  '☀️';
+}
+
+/* ── Tema claro ── */
+[data-theme="light"] {
+  --bg:          #f0f4fa;
+  --surface:     #ffffff;
+  --surface-2:   #f5f8ff;
+  --border:      rgba(14,116,144,.13);
+  --border-h:    rgba(14,116,144,.35);
+  --accent:      #0284c7;
+  --accent-dim:  rgba(2,132,199,.1);
+  --accent-glow: rgba(2,132,199,.2);
+  --warm:        #ea580c;
+  --warm-dim:    rgba(234,88,12,.1);
+  --cool:        #4f46e5;
+  --cool-dim:    rgba(79,70,229,.1);
+  --green:       #059669;
+  --red:         #dc2626;
+  --text-1:      #0f172a;
+  --text-2:      #475569;
+  --text-3:      #94a3b8;
+  --shadow:      0 4px 24px rgba(0,0,0,.08);
+  --shadow-card: 0 2px 12px rgba(0,0,0,.07), 0 1px 0 rgba(255,255,255,.9) inset;
+  --theme-icon:  '🌙';
 }
 
 html { font-size: 16px; }
@@ -51,6 +77,11 @@ body::before {
   content: '';
   position: fixed; inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2338bdf8' fill-opacity='0.025'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="light"] body::before {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230284c7' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
   pointer-events: none;
   z-index: 0;
 }
@@ -110,8 +141,26 @@ header {
 
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
 
-/* ─── BOTÕES ─── */
-.btn {
+/* ─── TEMA TOGGLE ─── */
+.btn-theme {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-h);
+  background: var(--accent-dim);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all .2s;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.btn-theme:hover { background: rgba(56,189,248,.25); border-color: var(--accent); box-shadow: 0 0 16px var(--accent-glow); }
+[data-theme="light"] .btn-theme:hover { background: rgba(2,132,199,.2); }
+
+/* Transição suave ao trocar tema */
+body, .room-card, .modal, .confirm-box, header, .metric, .conn-badge, .btn, .add-card, .hist-stat-card, .hist-chart-block, .hist-table-wrap {
+  transition: background-color .25s, border-color .25s, color .2s, box-shadow .25s;
+}
   display: flex; align-items: center; gap: 8px;
   padding: 9px 18px;
   border-radius: var(--radius-sm);
@@ -575,7 +624,7 @@ header {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
         Histórico
       </button>
-      <button class="btn" id="btnAddRoom">
+      <button class="btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema claro/escuro">☀️</button>
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Ambiente
       </button>
@@ -729,6 +778,30 @@ async function sha256(msg) {
 }
 
 /* ═════════════════════════════════════════
+   TEMA CLARO / ESCURO
+═════════════════════════════════════════ */
+(function() {
+  const saved = localStorage.getItem('amb_theme');
+  // Detecta preferência do sistema se não houver preferência salva
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = saved || (prefersDark ? 'dark' : 'light');
+  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+})();
+
+function setTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.getElementById('btnTheme').textContent = '🌙';
+    document.getElementById('btnTheme').title = 'Mudar para tema escuro';
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    document.getElementById('btnTheme').textContent = '☀️';
+    document.getElementById('btnTheme').title = 'Mudar para tema claro';
+  }
+  localStorage.setItem('amb_theme', theme);
+}
+
+/* ═════════════════════════════════════════
    STATE
 ═════════════════════════════════════════ */
 let mqttClient = null;
@@ -765,7 +838,21 @@ function ensureMqtt() {
   setTimeout(() => openMqttModal(false), 400);
 }
 
-function toast(msg, type='info', dur=3500) {
+document.getElementById('btnTheme').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme');
+  setTheme(current === 'light' ? 'dark' : 'light');
+});
+
+// Inicializa ícone do botão com base no tema atual
+(function() {
+  const current = document.documentElement.getAttribute('data-theme');
+  if (current === 'light') {
+    document.getElementById('btnTheme').textContent = '🌙';
+    document.getElementById('btnTheme').title = 'Mudar para tema escuro';
+  }
+})();
+
+
   const w = document.getElementById('toastWrap');
   const t = document.createElement('div');
   t.className = `toast ${type}`;
@@ -1763,7 +1850,18 @@ function trendArrow(vals) {
   return { cls: 'flat', sym: '→' };
 }
 
+function getThemeColors() {
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  return {
+    bg:      light ? '#ffffff' : '#0d1628',
+    text2:   light ? '#475569' : '#94a3b8',
+    text3:   light ? '#94a3b8' : '#4a5a72',
+    grid:    light ? 'rgba(2,132,199,.07)' : 'rgba(56,189,248,.05)',
+  };
+}
+
 function chartOpts(color, label, unit) {
+  const tc = getThemeColors();
   return {
     type: 'line',
     data: { labels: [], datasets: [{ label, data: [], borderColor: color,
@@ -1777,12 +1875,12 @@ function chartOpts(color, label, unit) {
         legend: { display: false },
         tooltip: { callbacks: {
           label: ctx => ` ${ctx.parsed.y.toFixed(1)}${unit}`
-        }, backgroundColor: '#0d1628', borderColor: color, borderWidth: 1,
-        titleColor: '#94a3b8', bodyColor: '#f0f6ff', padding: 10 }
+        }, backgroundColor: tc.bg, borderColor: color, borderWidth: 1,
+        titleColor: tc.text2, bodyColor: tc.bg === '#ffffff' ? '#0f172a' : '#f0f6ff', padding: 10 }
       },
       scales: {
-        x: { ticks: { color: '#4a5a72', maxTicksLimit: 8, maxRotation: 0 }, grid: { color: 'rgba(56,189,248,.05)' } },
-        y: { ticks: { color: '#4a5a72' }, grid: { color: 'rgba(56,189,248,.05)' } }
+        x: { ticks: { color: tc.text3, maxTicksLimit: 8, maxRotation: 0 }, grid: { color: tc.grid } },
+        y: { ticks: { color: tc.text3 }, grid: { color: tc.grid } }
       }
     }
   };
