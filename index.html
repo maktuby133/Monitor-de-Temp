@@ -15,6 +15,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
+  /* ── Tema escuro (padrão) ── */
   --bg:          #070d1a;
   --surface:     #0d1628;
   --surface-2:   #121e35;
@@ -23,8 +24,8 @@
   --accent:      #38bdf8;
   --accent-dim:  rgba(56,189,248,.15);
   --accent-glow: rgba(56,189,248,.25);
-  --warm:        #fb923c;
-  --warm-dim:    rgba(251,146,60,.15);
+  --warm:        #f97316;
+  --warm-dim:    rgba(249,115,22,.15);
   --cool:        #818cf8;
   --cool-dim:    rgba(129,140,248,.15);
   --green:       #34d399;
@@ -36,6 +37,7 @@
   --radius-sm:   10px;
   --shadow:      0 8px 32px rgba(0,0,0,.6);
   --shadow-card: 0 4px 24px rgba(0,0,0,.4), 0 1px 0 rgba(255,255,255,.04) inset;
+  --theme-icon:  '☀️';
 }
 
 /* ── Tema claro ── */
@@ -59,25 +61,8 @@
   --text-3:      #94a3b8;
   --shadow:      0 4px 24px rgba(0,0,0,.08);
   --shadow-card: 0 2px 12px rgba(0,0,0,.07), 0 1px 0 rgba(255,255,255,.9) inset;
+  --theme-icon:  '🌙';
 }
-
-/* Botão toggle de tema */
-.btn-theme {
-  display: flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-h);
-  background: var(--accent-dim);
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 1rem;
-  flex-shrink: 0;
-  transition: all .2s;
-}
-.btn-theme:hover { background: var(--accent-glow); border-color: var(--accent); }
-
-/* Transição suave ao trocar tema */
-*, *::before, *::after { transition: background-color .25s, border-color .2s, color .2s; }
 
 html { font-size: 16px; }
 body {
@@ -92,6 +77,11 @@ body::before {
   content: '';
   position: fixed; inset: 0;
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%2338bdf8' fill-opacity='0.025'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="light"] body::before {
+  background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%230284c7' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
   pointer-events: none;
   z-index: 0;
 }
@@ -150,6 +140,27 @@ header {
 .conn-badge.error     .dot { background: var(--red); }
 
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+/* ─── TEMA TOGGLE ─── */
+.btn-theme {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-h);
+  background: var(--accent-dim);
+  color: var(--accent);
+  cursor: pointer;
+  transition: all .2s;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+.btn-theme:hover { background: rgba(56,189,248,.25); border-color: var(--accent); box-shadow: 0 0 16px var(--accent-glow); }
+[data-theme="light"] .btn-theme:hover { background: rgba(2,132,199,.2); }
+
+/* Transição suave ao trocar tema */
+body, .room-card, .modal, .confirm-box, header, .metric, .conn-badge, .btn, .add-card, .hist-stat-card, .hist-chart-block, .hist-table-wrap {
+  transition: background-color .25s, border-color .25s, color .2s, box-shadow .25s;
+}
 
 /* ─── BOTÕES ─── */
 .btn {
@@ -256,14 +267,129 @@ header {
 }
 .hist-period-btn:hover { border-color:var(--border-h); color:var(--text-2); }
 .hist-period-btn.active { border-color:var(--accent); background:var(--accent-dim); color:var(--accent); }
+
+/* Stats grid — 4 cards por linha em telas grandes */
+.hist-stats-grid {
+  display:grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap:10px;
+  margin-bottom:20px;
+}
+@media(max-width:700px){ .hist-stats-grid{ grid-template-columns:repeat(2,1fr); } }
+@media(max-width:420px){ .hist-stats-grid{ grid-template-columns:1fr 1fr; } }
+
 .hist-stat-card {
   background:var(--surface-2); border:1px solid var(--border); border-radius:12px;
-  padding:14px 16px; display:flex; align-items:center; gap:14px;
+  padding:14px 16px; display:flex; flex-direction:column; gap:6px;
+  position:relative; overflow:hidden;
 }
-.hist-stat-icon { font-size:1.4rem; flex-shrink:0; }
-.hist-stat-label { font-size:.65rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; margin-bottom:3px; }
-.hist-stat-value { font-family:'DM Mono',monospace; font-size:1.2rem; font-weight:700; line-height:1; }
-.hist-stat-sub { font-size:.68rem; color:var(--text-3); margin-top:3px; }
+.hist-stat-card::before {
+  content:''; position:absolute; top:0;left:0;right:0;height:2px;
+  background:var(--card-accent,var(--accent)); opacity:.6;
+}
+.hist-stat-card.temp-card { --card-accent: var(--warm); }
+.hist-stat-card.hum-card  { --card-accent: var(--accent); }
+
+.hist-stat-head { display:flex; align-items:center; justify-content:space-between; }
+.hist-stat-icon { font-size:1rem; }
+.hist-stat-badge {
+  font-size:.58rem; font-family:'DM Mono',monospace; font-weight:700;
+  padding:2px 7px; border-radius:999px; border:1px solid transparent;
+}
+.hist-stat-badge.up   { background:rgba(251,146,60,.1); border-color:rgba(251,146,60,.3); color:var(--warm); }
+.hist-stat-badge.down { background:rgba(56,189,248,.1); border-color:rgba(56,189,248,.25); color:var(--accent); }
+.hist-stat-badge.ok   { background:rgba(52,211,153,.1); border-color:rgba(52,211,153,.25); color:var(--green); }
+
+.hist-stat-label { font-size:.6rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.06em; }
+.hist-stat-value { font-family:'DM Mono',monospace; font-size:1.35rem; font-weight:700; line-height:1; }
+.hist-stat-sub {
+  font-size:.65rem; color:var(--text-3); margin-top:2px;
+  display:flex; gap:8px; align-items:center; flex-wrap:wrap;
+}
+.hist-stat-sub span { display:inline-flex; align-items:center; gap:3px; }
+
+/* Barra de amplitude */
+.hist-range-bar {
+  height:3px; background:var(--border); border-radius:2px; margin-top:4px; overflow:hidden;
+}
+.hist-range-fill {
+  height:100%; border-radius:2px;
+  background:linear-gradient(90deg, var(--range-a,var(--accent)), var(--range-b,var(--warm)));
+}
+
+/* Chart containers com título melhorado */
+.hist-chart-block {
+  background:var(--surface-2); border:1px solid var(--border); border-radius:14px;
+  padding:18px 18px 14px; margin-bottom:12px; position:relative;
+}
+.hist-chart-title {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:14px;
+}
+.hist-chart-title-left { display:flex; align-items:center; gap:8px; }
+.hist-chart-label {
+  font-size:.7rem; font-weight:700; text-transform:uppercase; letter-spacing:.07em;
+}
+.hist-chart-meta {
+  font-size:.65rem; color:var(--text-3); font-family:'DM Mono',monospace;
+  display:flex; gap:12px;
+}
+.hist-chart-meta span { display:inline-flex; align-items:center; gap:4px; }
+.hist-chart-dot { width:7px;height:7px;border-radius:50%;flex-shrink:0; }
+
+/* Tabela de últimas leituras */
+.hist-table-wrap {
+  background:var(--surface-2); border:1px solid var(--border); border-radius:14px;
+  overflow:hidden; margin-top:12px;
+}
+.hist-table-header {
+  display:grid; grid-template-columns: 1fr 110px 110px 90px;
+  padding:10px 16px;
+  background:rgba(56,189,248,.04);
+  border-bottom:1px solid var(--border);
+  font-size:.6rem; font-weight:700; color:var(--text-3);
+  text-transform:uppercase; letter-spacing:.07em;
+}
+.hist-table-row {
+  display:grid; grid-template-columns: 1fr 110px 110px 90px;
+  padding:9px 16px; border-bottom:1px solid rgba(56,189,248,.05);
+  font-size:.78rem; align-items:center; transition:background .15s;
+}
+.hist-table-row:last-child { border-bottom:none; }
+.hist-table-row:hover { background:rgba(56,189,248,.04); }
+.hist-table-row .ts { font-family:'DM Mono',monospace; font-size:.7rem; color:var(--text-3); }
+.hist-table-row .tv { font-family:'DM Mono',monospace; font-weight:600; color:var(--warm); }
+.hist-table-row .hv { font-family:'DM Mono',monospace; font-weight:600; color:var(--accent); }
+.hist-table-row .idx { font-family:'DM Mono',monospace; font-size:.65rem; color:var(--text-3); }
+.hist-trend {
+  display:inline-flex; align-items:center; gap:3px;
+  font-size:.65rem; font-family:'DM Mono',monospace;
+}
+.hist-trend.up   { color:var(--warm); }
+.hist-trend.down { color:var(--cool); }
+.hist-trend.flat { color:var(--text-3); }
+
+/* Tabs dentro do histórico */
+.hist-tabs { display:flex; gap:4px; margin-bottom:14px; }
+.hist-tab {
+  padding:6px 14px; border-radius:7px; border:1px solid var(--border);
+  background:transparent; color:var(--text-3); font-family:'DM Sans',sans-serif;
+  font-size:.78rem; cursor:pointer; transition:all .2s;
+}
+.hist-tab:hover { border-color:var(--border-h); color:var(--text-2); }
+.hist-tab.active { border-color:var(--accent); background:var(--accent-dim); color:var(--accent); font-weight:600; }
+
+/* Seção colapsável de tabela */
+.hist-section-toggle {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:12px 16px; cursor:pointer; user-select:none;
+  font-size:.7rem; font-weight:700; color:var(--text-2);
+  text-transform:uppercase; letter-spacing:.07em;
+  border-bottom:1px solid var(--border); transition:background .15s;
+}
+.hist-section-toggle:hover { background:rgba(56,189,248,.04); }
+.hist-toggle-icon { font-size:.7rem; color:var(--text-3); transition:transform .2s; }
+.hist-table-body.collapsed { display:none; }
 
 /* ─── MÉTRICAS ─── */
 .metrics { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
@@ -473,14 +599,6 @@ header {
   letter-spacing:.07em; margin:16px 0 10px; display:flex; align-items:center; gap:8px; }
 .alert-section-label::before { content:''; flex:1; height:1px; background:var(--border); }
 </style>
-<script>
-// Aplica tema salvo antes do render para evitar flash
-(function(){
-  var t = localStorage.getItem('amb_theme');
-  if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-  if (t === 'light') document.documentElement.setAttribute('data-theme','light');
-})();
-</script>
 </head>
 <body>
 
@@ -509,7 +627,7 @@ header {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
         Histórico
       </button>
-      <button class="btn-theme" id="btnTheme" title="Alternar tema">☀️</button>
+      <button class="btn-theme" id="btnTheme" title="Alternar tema" aria-label="Alternar tema claro/escuro">☀️</button>
       <button class="btn" id="btnAddRoom">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
         Ambiente
@@ -664,6 +782,30 @@ async function sha256(msg) {
 }
 
 /* ═════════════════════════════════════════
+   TEMA CLARO / ESCURO
+═════════════════════════════════════════ */
+(function() {
+  const saved = localStorage.getItem('amb_theme');
+  // Detecta preferência do sistema se não houver preferência salva
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  const theme = saved || (prefersDark ? 'dark' : 'light');
+  if (theme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+})();
+
+function setTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+    document.getElementById('btnTheme').textContent = '🌙';
+    document.getElementById('btnTheme').title = 'Mudar para tema escuro';
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+    document.getElementById('btnTheme').textContent = '☀️';
+    document.getElementById('btnTheme').title = 'Mudar para tema claro';
+  }
+  localStorage.setItem('amb_theme', theme);
+}
+
+/* ═════════════════════════════════════════
    STATE
 ═════════════════════════════════════════ */
 let mqttClient = null;
@@ -699,6 +841,20 @@ function ensureMqtt() {
   }
   setTimeout(() => openMqttModal(false), 400);
 }
+
+document.getElementById('btnTheme').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme');
+  setTheme(current === 'light' ? 'dark' : 'light');
+});
+
+// Inicializa ícone do botão com base no tema atual
+(function() {
+  const current = document.documentElement.getAttribute('data-theme');
+  if (current === 'light') {
+    document.getElementById('btnTheme').textContent = '🌙';
+    document.getElementById('btnTheme').title = 'Mudar para tema escuro';
+  }
+})();
 
 function toast(msg, type='info', dur=3500) {
   const w = document.getElementById('toastWrap');
@@ -1657,7 +1813,59 @@ document.addEventListener('click', e => {
   if (_histCurrentId) loadHist(_histCurrentId, _histCurrentLimit);
 });
 
+// ── Hist Tabs ──
+document.getElementById('histTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.hist-tab');
+  if (!tab) return;
+  document.querySelectorAll('.hist-tab').forEach(b => b.classList.remove('active'));
+  tab.classList.add('active');
+  const which = tab.dataset.tab;
+  document.getElementById('histPanelCharts').style.display = which === 'charts' ? '' : 'none';
+  document.getElementById('histPanelTable').style.display  = which === 'table'  ? '' : 'none';
+});
+
+// ── Hist Table Toggle ──
+document.getElementById('histTableToggle').addEventListener('click', () => {
+  const body = document.getElementById('histTableBody');
+  const icon = document.querySelector('.hist-toggle-icon');
+  body.classList.toggle('collapsed');
+  icon.textContent = body.classList.contains('collapsed') ? '▼' : '▲';
+});
+
+function heatIndex(t, h) {
+  // Simplified heat index (Steadman) — returns null if not applicable
+  if (t < 27 || h < 40) return null;
+  const hi = -8.78469475556
+    + 1.61139411*t + 2.33854883889*h
+    - 0.14611605*t*h - 0.012308094*t*t
+    - 0.0164248277778*h*h
+    + 0.002211732*t*t*h + 0.00072546*t*h*h
+    - 0.000003582*t*t*h*h;
+  return hi.toFixed(1);
+}
+
+function trendArrow(vals) {
+  if (vals.length < 2) return { cls: 'flat', sym: '→' };
+  const first = vals.slice(0, Math.ceil(vals.length/2)).reduce((a,b)=>a+b,0) / Math.ceil(vals.length/2);
+  const last  = vals.slice(-Math.ceil(vals.length/2)).reduce((a,b)=>a+b,0) / Math.ceil(vals.length/2);
+  const diff = last - first;
+  if (diff >  0.3) return { cls: 'up',   sym: '↑' };
+  if (diff < -0.3) return { cls: 'down', sym: '↓' };
+  return { cls: 'flat', sym: '→' };
+}
+
+function getThemeColors() {
+  const light = document.documentElement.getAttribute('data-theme') === 'light';
+  return {
+    bg:      light ? '#ffffff' : '#0d1628',
+    text2:   light ? '#475569' : '#94a3b8',
+    text3:   light ? '#94a3b8' : '#4a5a72',
+    grid:    light ? 'rgba(2,132,199,.07)' : 'rgba(56,189,248,.05)',
+  };
+}
+
 function chartOpts(color, label, unit) {
+  const tc = getThemeColors();
   return {
     type: 'line',
     data: { labels: [], datasets: [{ label, data: [], borderColor: color,
@@ -1671,12 +1879,12 @@ function chartOpts(color, label, unit) {
         legend: { display: false },
         tooltip: { callbacks: {
           label: ctx => ` ${ctx.parsed.y.toFixed(1)}${unit}`
-        }, backgroundColor: '#0d1628', borderColor: color, borderWidth: 1,
-        titleColor: '#94a3b8', bodyColor: '#f0f6ff', padding: 10 }
+        }, backgroundColor: tc.bg, borderColor: color, borderWidth: 1,
+        titleColor: tc.text2, bodyColor: tc.bg === '#ffffff' ? '#0f172a' : '#f0f6ff', padding: 10 }
       },
       scales: {
-        x: { ticks: { color: '#4a5a72', maxTicksLimit: 8, maxRotation: 0 }, grid: { color: 'rgba(56,189,248,.05)' } },
-        y: { ticks: { color: '#4a5a72' }, grid: { color: 'rgba(56,189,248,.05)' } }
+        x: { ticks: { color: tc.text3, maxTicksLimit: 8, maxRotation: 0 }, grid: { color: tc.grid } },
+        y: { ticks: { color: tc.text3 }, grid: { color: tc.grid } }
       }
     }
   };
@@ -1692,7 +1900,7 @@ async function loadHist(id, limit) {
   }
 
   // Loading state
-  st.innerHTML = `<div class="hist-stat-card" style="grid-column:1/-1;justify-content:center;gap:8px"><span style="color:var(--text-3)">⏳ Carregando do Google Sheets...</span></div>`;
+  st.innerHTML = `<div class="hist-stat-card" style="grid-column:1/-1;justify-content:center;gap:8px;align-items:center;flex-direction:row"><span style="color:var(--text-3)">⏳ Carregando do Google Sheets...</span></div>`;
 
   // Destroy old charts
   if (_hchartTemp) { _hchartTemp.destroy(); _hchartTemp = null; }
@@ -1711,45 +1919,126 @@ async function loadHist(id, limit) {
     const temps  = d.map(x => x.temp);
     const hums   = d.map(x => x.hum);
 
-    // Stats
-    const tMed = (temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1);
-    const hMed = (hums.reduce((a,b)=>a+b,0)/hums.length).toFixed(1);
-    const tMax = Math.max(...temps).toFixed(1);
-    const tMin = Math.min(...temps).toFixed(1);
-    const hMax = Math.max(...hums).toFixed(1);
-    const hMin = Math.min(...hums).toFixed(1);
+    // ── Estatísticas ──
+    const tMed  = (temps.reduce((a,b)=>a+b,0)/temps.length).toFixed(1);
+    const hMed  = (hums.reduce((a,b)=>a+b,0)/hums.length).toFixed(1);
+    const tMax  = Math.max(...temps).toFixed(1);
+    const tMin  = Math.min(...temps).toFixed(1);
+    const hMax  = Math.max(...hums).toFixed(1);
+    const hMin  = Math.min(...hums).toFixed(1);
+    const tAmp  = (tMax - tMin).toFixed(1);
+    const hAmp  = (hMax - hMin).toFixed(1);
+    const tTrend = trendArrow(temps);
+    const hTrend = trendArrow(hums);
+    const hi    = heatIndex(parseFloat(tMed), parseFloat(hMed));
+
+    // Atualiza meta nos cabeçalhos de gráfico
+    document.getElementById('histTMetaMed').textContent = tMed + '°C';
+    document.getElementById('histTMetaMax').textContent = tMax + '°C';
+    document.getElementById('histTMetaMin').textContent = tMin + '°C';
+    document.getElementById('histHMetaMed').textContent = hMed + '%';
+    document.getElementById('histHMetaMax').textContent = hMax + '%';
+    document.getElementById('histHMetaMin').textContent = hMin + '%';
+
+    // Subtítulo com contagem
+    const room = rooms.find(r => r.id === id);
+    document.getElementById('histSubtitle').textContent =
+      `${room ? room.label + ' · ' : ''}${d.length} leituras · Google Sheets`;
+
+    // Amplitude % para barra (normalizado 0–5°C / 0–20%)
+    const tFill = Math.min(100, (tAmp / 5) * 100);
+    const hFill = Math.min(100, (hAmp / 20) * 100);
 
     st.innerHTML = `
-      <div class="hist-stat-card">
-        <div class="hist-stat-icon">🌡</div>
-        <div>
-          <div class="hist-stat-label">Temperatura média</div>
-          <div class="hist-stat-value" style="color:var(--warm)">${tMed}°C</div>
-          <div class="hist-stat-sub">↑ ${tMax}°C &nbsp;·&nbsp; ↓ ${tMin}°C</div>
+      <!-- Temp média -->
+      <div class="hist-stat-card temp-card">
+        <div class="hist-stat-head">
+          <span class="hist-stat-icon">🌡</span>
+          <span class="hist-stat-badge ${tTrend.cls === 'up' ? 'up' : tTrend.cls === 'down' ? 'down' : 'ok'}">${tTrend.sym} Tendência</span>
+        </div>
+        <div class="hist-stat-label">Temp. Média</div>
+        <div class="hist-stat-value" style="color:var(--warm)">${tMed}°C</div>
+        <div class="hist-stat-sub">
+          <span>↑ ${tMax}°C</span>
+          <span>↓ ${tMin}°C</span>
         </div>
       </div>
-      <div class="hist-stat-card">
-        <div class="hist-stat-icon">💧</div>
-        <div>
-          <div class="hist-stat-label">Umidade média</div>
-          <div class="hist-stat-value" style="color:var(--accent)">${hMed}%</div>
-          <div class="hist-stat-sub">↑ ${hMax}% &nbsp;·&nbsp; ↓ ${hMin}%</div>
+
+      <!-- Amplitude temp -->
+      <div class="hist-stat-card temp-card">
+        <div class="hist-stat-head">
+          <span class="hist-stat-icon">↕️</span>
+          <span class="hist-stat-badge ok">Variação</span>
         </div>
+        <div class="hist-stat-label">Amplitude Temp.</div>
+        <div class="hist-stat-value" style="color:var(--warm)">${tAmp}°C</div>
+        <div class="hist-range-bar" style="margin-top:8px">
+          <div class="hist-range-fill" style="width:${tFill}%;--range-a:#fcd34d;--range-b:#f97316"></div>
+        </div>
+        <div class="hist-stat-sub" style="margin-top:4px"><span style="font-size:.6rem">${tFill < 30 ? 'Estável' : tFill < 60 ? 'Moderado' : 'Alta variação'}</span></div>
+      </div>
+
+      <!-- Umid média -->
+      <div class="hist-stat-card hum-card">
+        <div class="hist-stat-head">
+          <span class="hist-stat-icon">💧</span>
+          <span class="hist-stat-badge ${hTrend.cls === 'up' ? 'up' : hTrend.cls === 'down' ? 'down' : 'ok'}">${hTrend.sym} Tendência</span>
+        </div>
+        <div class="hist-stat-label">Umidade Média</div>
+        <div class="hist-stat-value" style="color:var(--accent)">${hMed}%</div>
+        <div class="hist-stat-sub">
+          <span>↑ ${hMax}%</span>
+          <span>↓ ${hMin}%</span>
+        </div>
+      </div>
+
+      <!-- Índice de calor ou Amplitude umid -->
+      <div class="hist-stat-card hum-card">
+        <div class="hist-stat-head">
+          <span class="hist-stat-icon">${hi ? '🔥' : '↕️'}</span>
+          <span class="hist-stat-badge ok">${hi ? 'Sensação' : 'Variação'}</span>
+        </div>
+        <div class="hist-stat-label">${hi ? 'Índice de Calor' : 'Amplitude Umid.'}</div>
+        <div class="hist-stat-value" style="color:${hi ? 'var(--red)' : 'var(--accent)'}">${hi ? hi + '°C' : hAmp + '%'}</div>
+        ${hi
+          ? `<div class="hist-stat-sub"><span>${parseFloat(hi) > 39 ? '🚨 Perigo' : parseFloat(hi) > 35 ? '⚠️ Cuidado' : '✅ Normal'}</span></div>`
+          : `<div class="hist-range-bar" style="margin-top:8px"><div class="hist-range-fill" style="width:${hFill}%;--range-a:#818cf8;--range-b:#38bdf8"></div></div><div class="hist-stat-sub" style="margin-top:4px"><span style="font-size:.6rem">${hFill < 30 ? 'Estável' : hFill < 60 ? 'Moderado' : 'Alta variação'}</span></div>`
+        }
       </div>`;
 
-    // Temp chart
+    // ── Gráficos ──
     const ctxT = document.getElementById('histChartTemp');
     const cfgT = chartOpts('#fb923c', 'Temp °C', '°C');
     cfgT.data.labels = labels;
     cfgT.data.datasets[0].data = temps;
     _hchartTemp = new Chart(ctxT, cfgT);
 
-    // Hum chart
     const ctxH = document.getElementById('histChartHum');
     const cfgH = chartOpts('#38bdf8', 'Umid %', '%');
     cfgH.data.labels = labels;
     cfgH.data.datasets[0].data = hums;
     _hchartHum = new Chart(ctxH, cfgH);
+
+    // ── Tabela de leituras ──
+    const rows = document.getElementById('histTableRows');
+    const slice = d.slice().reverse().slice(0, 50); // últimas 50
+    rows.innerHTML = slice.map((row, i) => {
+      const prevT = i < slice.length - 1 ? slice[i+1].temp : null;
+      const prevH = i < slice.length - 1 ? slice[i+1].hum  : null;
+      const dt = prevT !== null ? row.temp - prevT : 0;
+      const dh = prevH !== null ? row.hum  - prevH : 0;
+      const tArrow = dt >  0.15 ? '↑' : dt < -0.15 ? '↓' : '—';
+      const hArrow = dh >  0.5  ? '↑' : dh < -0.5  ? '↓' : '—';
+      const tCls   = dt >  0.15 ? 'up' : dt < -0.15 ? 'down' : 'flat';
+      const hCls   = dh >  0.5  ? 'up' : dh < -0.5  ? 'down' : 'flat';
+      const hiRow  = heatIndex(row.temp, row.hum);
+      return `<div class="hist-table-row">
+        <span class="ts">${row.label}</span>
+        <span class="tv">${row.temp.toFixed(1)}°C <span class="hist-trend ${tCls}">${tArrow}</span></span>
+        <span class="hv">${row.hum.toFixed(1)}% <span class="hist-trend ${hCls}">${hArrow}</span></span>
+        <span class="idx" style="color:${hiRow ? 'var(--red)' : 'var(--text-3)'}">${hiRow ? hiRow + '°C' : '—'}</span>
+      </div>`;
+    }).join('');
 
   } catch(e) {
     st.innerHTML = `<div style="color:var(--red);grid-column:1/-1;text-align:center">⚠ Erro ao carregar: ${e.message}</div>`;
@@ -1760,19 +2049,19 @@ async function loadHist(id, limit) {
 
 <!-- HISTORY MODAL -->
 <div class="modal-overlay" id="historyModal">
-  <div class="modal" style="max-width:1000px;width:100%">
+  <div class="modal" style="max-width:1060px;width:100%">
 
     <!-- Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;flex-wrap:wrap;gap:12px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
       <div>
         <h2 style="margin-bottom:3px">📊 Histórico</h2>
-        <p style="font-size:.78rem;color:var(--text-3);margin:0">Dados agregados por hora · Google Sheets</p>
+        <p id="histSubtitle" style="font-size:.78rem;color:var(--text-3);margin:0">Dados agregados por hora · Google Sheets</p>
       </div>
       <button class="btn" onclick="closeHistory()" style="padding:8px 16px">✕ Fechar</button>
     </div>
 
     <!-- Controles -->
-    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:center">
+    <div style="display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap;align-items:flex-end">
       <div style="flex:1;min-width:180px">
         <div style="font-size:.68rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Ambiente</div>
         <select id="histSelect" style="width:100%;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text-1);font-family:'DM Sans',sans-serif;font-size:.88rem;outline:none"></select>
@@ -1780,27 +2069,75 @@ async function loadHist(id, limit) {
       <div>
         <div style="font-size:.68rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Período</div>
         <div style="display:flex;gap:6px" id="histPeriodBtns">
-          <button class="hist-period-btn active" data-limit="360">30min</button>
-          <button class="hist-period-btn" data-limit="720">1h</button>
-          <button class="hist-period-btn" data-limit="1440">2h</button>
+          <button class="hist-period-btn active" data-limit="360">30 min</button>
+          <button class="hist-period-btn" data-limit="720">1 h</button>
+          <button class="hist-period-btn" data-limit="1440">2 h</button>
           <button class="hist-period-btn" data-limit="2000">Tudo</button>
         </div>
       </div>
     </div>
 
-    <!-- Stats cards -->
-    <div id="histStats" style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:20px"></div>
+    <!-- Stats cards — 4 colunas -->
+    <div id="histStats" class="hist-stats-grid"></div>
 
-    <!-- Gráfico Temperatura -->
-    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px">
-      <div style="font-size:.72rem;font-weight:700;color:var(--warm);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">🌡 Temperatura (°C)</div>
-      <div style="position:relative;height:180px"><canvas id="histChartTemp"></canvas></div>
+    <!-- Tabs: Gráficos / Tabela -->
+    <div class="hist-tabs" id="histTabs">
+      <button class="hist-tab active" data-tab="charts">📈 Gráficos</button>
+      <button class="hist-tab" data-tab="table">🗒 Leituras</button>
     </div>
 
-    <!-- Gráfico Umidade -->
-    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:12px;padding:16px">
-      <div style="font-size:.72rem;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px">💧 Umidade (%)</div>
-      <div style="position:relative;height:180px"><canvas id="histChartHum"></canvas></div>
+    <!-- Painel Gráficos -->
+    <div id="histPanelCharts">
+      <!-- Gráfico Temperatura -->
+      <div class="hist-chart-block">
+        <div class="hist-chart-title">
+          <div class="hist-chart-title-left">
+            <span style="font-size:1rem">🌡</span>
+            <span class="hist-chart-label" style="color:var(--warm)">Temperatura (°C)</span>
+          </div>
+          <div class="hist-chart-meta" id="histTempMeta">
+            <span><span class="hist-chart-dot" style="background:var(--warm)"></span><span id="histTMetaMed">—</span> média</span>
+            <span>↑ <span id="histTMetaMax">—</span></span>
+            <span>↓ <span id="histTMetaMin">—</span></span>
+          </div>
+        </div>
+        <div style="position:relative;height:190px"><canvas id="histChartTemp"></canvas></div>
+      </div>
+
+      <!-- Gráfico Umidade -->
+      <div class="hist-chart-block">
+        <div class="hist-chart-title">
+          <div class="hist-chart-title-left">
+            <span style="font-size:1rem">💧</span>
+            <span class="hist-chart-label" style="color:var(--accent)">Umidade (%)</span>
+          </div>
+          <div class="hist-chart-meta" id="histHumMeta">
+            <span><span class="hist-chart-dot" style="background:var(--accent)"></span><span id="histHMetaMed">—</span> média</span>
+            <span>↑ <span id="histHMetaMax">—</span></span>
+            <span>↓ <span id="histHMetaMin">—</span></span>
+          </div>
+        </div>
+        <div style="position:relative;height:190px"><canvas id="histChartHum"></canvas></div>
+      </div>
+    </div>
+
+    <!-- Painel Tabela -->
+    <div id="histPanelTable" style="display:none">
+      <div class="hist-table-wrap">
+        <div class="hist-section-toggle" id="histTableToggle">
+          <span>Últimas leituras</span>
+          <span class="hist-toggle-icon">▲</span>
+        </div>
+        <div class="hist-table-body" id="histTableBody">
+          <div class="hist-table-header">
+            <span>Horário</span>
+            <span>🌡 Temp (°C)</span>
+            <span>💧 Umid (%)</span>
+            <span>Índice</span>
+          </div>
+          <div id="histTableRows" style="max-height:320px;overflow-y:auto"></div>
+        </div>
+      </div>
     </div>
 
     <div id="histLoading" style="text-align:center;padding:40px;color:var(--text-3);display:none">⏳ Carregando...</div>
@@ -1843,30 +2180,5 @@ document.getElementById('globalAuthConfirm').addEventListener('click', () => {
 });
 </script>
 
-<script>
-(function(){
-  var btn = document.getElementById('btnTheme');
-  function applyTheme(t) {
-    if (t === 'light') {
-      document.documentElement.setAttribute('data-theme','light');
-      btn.textContent = '🌙';
-      btn.title = 'Mudar para tema escuro';
-    } else {
-      document.documentElement.removeAttribute('data-theme');
-      btn.textContent = '☀️';
-      btn.title = 'Mudar para tema claro';
-    }
-    localStorage.setItem('amb_theme', t);
-  }
-  // Inicializa ícone
-  var current = document.documentElement.getAttribute('data-theme') || 'dark';
-  applyTheme(current);
-
-  btn.addEventListener('click', function(){
-    var now = document.documentElement.getAttribute('data-theme');
-    applyTheme(now === 'light' ? 'dark' : 'light');
-  });
-})();
-</script>
 </body>
 </html>
