@@ -714,7 +714,7 @@ async function sha256(msg) {
 let mqttClient = null;
 let rooms = JSON.parse(localStorage.getItem('amb_rooms') || '[]');
 let selectedIcon = '🏠';
-const TIMEOUT_MS = 30000; // 30s sem dados → offline
+const TIMEOUT_MS = 40000; // 30s sem dados → offline
 let mqttConnectTime = 0;  // momento em que o MQTT conectou — usado para ignorar mensagens retained
 
 // Credenciais MQTT ficam APENAS em memória — nunca no localStorage
