@@ -1670,8 +1670,8 @@ function getHistSheets(deviceId, limit) {
     const script = document.createElement('script');
     const timer  = setTimeout(() => {
       delete window[cbName]; script.remove();
-      reject(new Error('Timeout ao buscar histórico'));
-    }, 15000);
+      reject(new Error('Timeout — o Apps Script demorou mais de 30s. Tente novamente.'));
+    }, 30000);
     window[cbName] = (json) => {
       clearTimeout(timer); delete window[cbName]; script.remove();
       if (!json.ok) reject(new Error(json.error || 'Erro no Sheets'));
@@ -1684,24 +1684,73 @@ function getHistSheets(deviceId, limit) {
   });
 }
 
+function parseTs(ts) {
+  if (!ts) return null;
+  // Suporta "dd/MM/yyyy HH:mm:ss" e "yyyy-MM-ddTHH:mm:ss" e variações
+  let d;
+  const ptBR = ts.match(/^(\d{2})\/(\d{2})\/(\d{4})\s(\d{2}):(\d{2})/);
+  if (ptBR) {
+    d = new Date(ptBR[3], ptBR[2]-1, ptBR[1], ptBR[4], ptBR[5]);
+  } else {
+    d = new Date(ts);
+  }
+  return isNaN(d.getTime()) ? null : d;
+}
+
 function aggregateByHour(data) {
+  const n = data.length;
+  // Resolução adaptativa: quanto mais dados, mais agrupamos
+  // ≤120 pontos → sem agrupamento (mostrar tudo)
+  // ≤600       → agrupa de 5 em 5 minutos
+  // ≤2160      → agrupa de 15 em 15 minutos
+  // >2160      → agrupa por hora
+  let bucketMinutes;
+  if      (n <= 120)  bucketMinutes = 0;   // sem agrupamento
+  else if (n <= 600)  bucketMinutes = 5;
+  else if (n <= 2160) bucketMinutes = 15;
+  else                bucketMinutes = 60;
+
+  if (bucketMinutes === 0) {
+    // Sem agrupamento — retorna cada ponto com label formatado
+    return data.map(p => {
+      const d = parseTs(p.ts);
+      const label = d
+        ? d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0')
+        : (p.ts || '?');
+      return { label, temp: Number(p.temp), hum: Number(p.hum) };
+    });
+  }
+
   const buckets = {};
+  const bucketOrder = [];
   data.forEach(p => {
-    // ts vem como string "dd/MM/yyyy HH:mm:ss" do Sheets
-    const key = p.ts ? p.ts.substring(0, 13).replace(' ', ' ') + 'h' : '?';
-    if (!buckets[key]) buckets[key] = { temps:[], hums:[] };
+    const d = parseTs(p.ts);
+    let key;
+    if (d) {
+      const totalMin = d.getHours() * 60 + d.getMinutes();
+      const slot = Math.floor(totalMin / bucketMinutes) * bucketMinutes;
+      const slotH = Math.floor(slot / 60).toString().padStart(2,'0');
+      const slotM = (slot % 60).toString().padStart(2,'0');
+      // Inclui data no bucket key para não misturar dias
+      const dateStr = d.getDate().toString().padStart(2,'0') + '/' + (d.getMonth()+1).toString().padStart(2,'0');
+      key = dateStr + ' ' + slotH + ':' + slotM;
+    } else {
+      key = p.ts ? p.ts.substring(0, 13) : '?';
+    }
+    if (!buckets[key]) { buckets[key] = { temps:[], hums:[] }; bucketOrder.push(key); }
     buckets[key].temps.push(Number(p.temp));
     buckets[key].hums.push(Number(p.hum));
   });
-  return Object.entries(buckets).map(([label, v]) => ({
-    label,
-    temp: parseFloat((v.temps.reduce((a,b)=>a+b,0)/v.temps.length).toFixed(1)),
-    hum:  parseFloat((v.hums.reduce((a,b)=>a+b,0)/v.hums.length).toFixed(1)),
+
+  return bucketOrder.map(key => ({
+    label: key,
+    temp: parseFloat((buckets[key].temps.reduce((a,b)=>a+b,0)/buckets[key].temps.length).toFixed(1)),
+    hum:  parseFloat((buckets[key].hums.reduce((a,b)=>a+b,0)/buckets[key].hums.length).toFixed(1)),
   }));
 }
 
 let _hchartTemp = null, _hchartHum = null;
-let _histCurrentId = null, _histCurrentLimit = 360;
+let _histCurrentId = null, _histCurrentLimit = 90;
 
 document.getElementById('btnHistory').onclick = () => {
   document.getElementById('historyModal').classList.add('open');
@@ -1803,7 +1852,7 @@ async function loadHist(id, limit) {
     return;
   }
 
-  st.innerHTML = '<div class="hist-stat-card" style="grid-column:1/-1;flex-direction:row;justify-content:center;align-items:center"><span style="color:var(--text-3)">⏳ Carregando...</span></div>';
+  st.innerHTML = '<div class="hist-stat-card" style="grid-column:1/-1;flex-direction:row;justify-content:center;align-items:center"><span style="color:var(--text-3)">⏳ Buscando dados do Google Sheets...</span></div>';
 
   if (_hchartTemp) { _hchartTemp.destroy(); _hchartTemp = null; }
   if (_hchartHum)  { _hchartHum.destroy();  _hchartHum  = null; }
@@ -1844,7 +1893,7 @@ async function loadHist(id, limit) {
 
     const room = rooms.find(r => r.id === id);
     document.getElementById('histSubtitle').textContent =
-      (room ? room.label + ' · ' : '') + d.length + ' leituras · Google Sheets';
+      (room ? room.label + ' · ' : '') + raw.length + ' leituras brutas → ' + d.length + ' pontos · Google Sheets';
 
     st.innerHTML =
       '<div class="hist-stat-card temp-card">' +
@@ -1907,7 +1956,15 @@ async function loadHist(id, limit) {
     }).join('');
 
   } catch(e) {
-    st.innerHTML = '<div style="color:var(--red);grid-column:1/-1;text-align:center">⚠ Erro: ' + e.message + '</div>';
+    // Retry automático 1x em caso de timeout (cold start do Apps Script)
+    if (!loadHist._retry && e.message.includes('Timeout')) {
+      loadHist._retry = true;
+      st.innerHTML = '<div class="hist-stat-card" style="grid-column:1/-1;flex-direction:row;justify-content:center;align-items:center"><span style="color:var(--text-3)">⏳ Apps Script inicializando, tentando novamente...</span></div>';
+      setTimeout(() => { loadHist._retry = false; loadHist(id, limit); }, 3000);
+    } else {
+      loadHist._retry = false;
+      st.innerHTML = '<div style="color:var(--red);grid-column:1/-1;text-align:center;padding:12px">⚠ ' + e.message + '<br><small style="color:var(--text-3);margin-top:4px;display:block">Verifique se o Apps Script está implantado e acessível.</small></div>';
+    }
   }
 }
 
@@ -1931,10 +1988,10 @@ async function loadHist(id, limit) {
       <div>
         <div style="font-size:.68rem;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Período</div>
         <div style="display:flex;gap:6px" id="histPeriodBtns">
-          <button class="hist-period-btn active" data-limit="360">30 min</button>
-          <button class="hist-period-btn" data-limit="720">1 h</button>
-          <button class="hist-period-btn" data-limit="1440">2 h</button>
-          <button class="hist-period-btn" data-limit="2000">Tudo</button>
+          <button class="hist-period-btn active" data-limit="90">1 h</button>
+          <button class="hist-period-btn" data-limit="540">6 h</button>
+          <button class="hist-period-btn" data-limit="2160">24 h</button>
+          <button class="hist-period-btn" data-limit="99999">Tudo</button>
         </div>
       </div>
     </div>
