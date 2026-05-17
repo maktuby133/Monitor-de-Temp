@@ -17,17 +17,17 @@ app.use(express.json());
 // ── VAPID (Web Push) ─────────────────────────────────
 // Gere uma vez: npx web-push generate-vapid-keys
 // Coloque nas variáveis de ambiente do Render
-const VAPID_PUBLIC  = process.env.VAPID_PUBLIC  || 'COLE_SUA_VAPID_PUBLIC_KEY_AQUI';
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE || 'COLE_SUA_VAPID_PRIVATE_KEY_AQUI';
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC  || 'BGMRvzyBhYUXgyrWjUxFGoy9e8iMs9ukZWNTUTpmgSfb9ZLj_f5EaVr6cyeTn77XLk2y_dcqmlNO3NuK0o8Iilo';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE || 'Qg9yk6vNtlJoZBeCjdtDipCujRrZHo91OuN_oA74e84';
 const VAPID_EMAIL   = process.env.VAPID_EMAIL   || 'mailto:seu@email.com';
 
 webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
 
 // ── MQTT ─────────────────────────────────────────────
 // Mesmas credenciais que o dashboard usa
-const MQTT_HOST = process.env.MQTT_HOST || 'SEU_BROKER.hivemq.cloud';
-const MQTT_USER = process.env.MQTT_USER || 'SEU_USUARIO_MQTT';
-const MQTT_PASS = process.env.MQTT_PASS || 'SUA_SENHA_MQTT';
+const MQTT_HOST = process.env.MQTT_HOST || '07847a67e2944aca805e81e761a6f177.s1.eu.hivemq.cloud';
+const MQTT_USER = process.env.MQTT_USER || 'monitortemp';
+const MQTT_PASS = process.env.MQTT_PASS || '061084Cc@';
 
 const mqttClient = mqtt.connect(`mqtts://${MQTT_HOST}:8883`, {
   username:           MQTT_USER,
@@ -182,4 +182,3 @@ app.get('/', (req, res) => {
 app.listen(PORT, () => {
   console.log(`[SERVER] Rodando na porta ${PORT}`);
 });
-
