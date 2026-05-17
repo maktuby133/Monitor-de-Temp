@@ -691,6 +691,23 @@ header {
       <div class="form-group"><label>Mínima</label><input id="aMinHum" type="number" step="1" placeholder="ex: 30"></div>
       <div class="form-group"><label>Máxima</label><input id="aMaxHum" type="number" step="1" placeholder="ex: 80"></div>
     </div>
+    <div class="alert-section-label" style="margin-top:16px">Notificação Push</div>
+    <div style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:4px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div>
+          <div style="font-size:.82rem;font-weight:600;color:var(--text-1)">Receber notificação push</div>
+          <div id="notifStatusMsg" style="font-size:.7rem;color:var(--text-3);margin-top:3px">—</div>
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none">
+          <input type="checkbox" id="aNotifyEnabled" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer">
+          <span style="font-size:.8rem;color:var(--text-2)">Ativar</span>
+        </label>
+      </div>
+      <div id="notifyPermBox" style="display:none;margin-top:10px;padding:10px 12px;background:rgba(251,146,60,.08);border:1px solid rgba(251,146,60,.25);border-radius:8px">
+        <div style="font-size:.75rem;color:var(--warm);margin-bottom:8px">⚠ Permissão necessária para este navegador.</div>
+        <button id="btnRequestNotifyPerm" style="background:var(--accent-dim);border:1px solid var(--border-h);border-radius:6px;padding:6px 14px;color:var(--accent);font-size:.78rem;cursor:pointer">🔔 Permitir notificações</button>
+      </div>
+    </div>
     <div class="modal-actions" style="margin-top:24px">
       <button class="btn-cancel" id="btnAlertCancel">Cancelar</button>
       <button class="btn-primary" id="btnAlertClear" style="flex:1;border-color:rgba(248,113,113,.4);color:var(--red);background:rgba(248,113,113,.08)">🗑 Limpar</button>
@@ -714,7 +731,7 @@ async function sha256(msg) {
 let mqttClient = null;
 let rooms = JSON.parse(localStorage.getItem('amb_rooms') || '[]');
 let selectedIcon = '🏠';
-const TIMEOUT_MS = 40000; // 30s sem dados → offline
+const TIMEOUT_MS = 30000; // 30s sem dados → offline
 let mqttConnectTime = 0;  // momento em que o MQTT conectou — usado para ignorar mensagens retained
 
 // Credenciais MQTT ficam APENAS em memória — nunca no localStorage
@@ -722,6 +739,16 @@ let _mqttCfg = { broker:'', port:8884, user:'', pass:'' };
 
 // Hashes aguardando validação ao adicionar device { deviceId → { hash, resolve } }
 const _pendingAuth = {};
+
+// ── NOTIFICAÇÕES PUSH ─────────────────────────────────
+const SERVER_URL    = 'https://testeservidor-6opr.onrender.com';
+let _swRegistration = null;   // ServiceWorkerRegistration ativo
+let _notifPermissao = false;  // permissão concedida pelo browser
+// Inicializa: se já tinha permissão, registra o SW imediatamente
+if ('Notification' in window && Notification.permission === 'granted') {
+  _notifPermissao = true;
+  window.addEventListener('load', () => _registrarSW());
+}
 
 /* ═════════════════════════════════════════
    UTILS
@@ -894,6 +921,10 @@ function updateCardData(roomId, data) {
       if (a.minHum  !== null && hum  < a.minHum)  msgs.push(`Umidade baixa: ${hum.toFixed(1)}% (mín ${a.minHum}%)`);
       if (a.maxHum  !== null && hum  > a.maxHum)  msgs.push(`Umidade alta: ${hum.toFixed(1)}% (máx ${a.maxHum}%)`);
       toast(`⚠ ${room.label}: ${msgs.join(' | ')}`, 'error', 8000);
+      // Notificação push via SW (funciona com aba minimizada/fechada)
+      if (a.notifyEnabled) {
+        enviarNotificacao(`⚠ AmbientWatch — ${room.label}`, msgs.join('\n'), 'alert-' + roomId);
+      }
     }
     if (!triggered) room._alerted = false;
   }
@@ -1583,6 +1614,8 @@ function openAlertModal(roomId) {
     document.getElementById('aMaxTemp').value = a.maxTemp ?? '';
     document.getElementById('aMinHum').value  = a.minHum  ?? '';
     document.getElementById('aMaxHum').value  = a.maxHum  ?? '';
+    document.getElementById('aNotifyEnabled').checked = !!(a.notifyEnabled);
+    _atualizarUINotif();
     document.getElementById('alertModal').classList.add('open');
   });
 }
@@ -1592,18 +1625,137 @@ document.getElementById('alertModal').addEventListener('click', e => { if (e.tar
 document.getElementById('btnAlertSave').addEventListener('click', () => {
   const room = rooms.find(r => r.id === _alertRoomId); if (!room) return;
   const parse = id => { const v = parseFloat(document.getElementById(id).value); return isNaN(v) ? null : v; };
-  room.alerts = { minTemp:parse('aMinTemp'), maxTemp:parse('aMaxTemp'), minHum:parse('aMinHum'), maxHum:parse('aMaxHum') };
+  const notifyEnabled = document.getElementById('aNotifyEnabled').checked;
+  room.alerts = { minTemp:parse('aMinTemp'), maxTemp:parse('aMaxTemp'), minHum:parse('aMinHum'), maxHum:parse('aMaxHum'), notifyEnabled };
   room._alerted = false; saveRooms(); toast('Alertas salvos!', 'success'); closeAlertModal();
+  // Sincroniza com servidor se notifyEnabled
+  if (notifyEnabled) _subscribeRoom(room, null).catch(() => {});
 });
 document.getElementById('btnAlertClear').addEventListener('click', () => {
   const room = rooms.find(r => r.id === _alertRoomId); if (!room) return;
-  room.alerts = { minTemp:null, maxTemp:null, minHum:null, maxHum:null }; room._alerted = false;
+  room.alerts = { minTemp:null, maxTemp:null, minHum:null, maxHum:null, notifyEnabled:false }; room._alerted = false;
   const badge = document.getElementById(`alertbadge-${_alertRoomId}`);
   if (badge) badge.style.display = 'none';
   saveRooms(); toast('Alertas removidos.', 'info'); closeAlertModal();
 });
 window.openAlertModal = openAlertModal;
 
+/* ═════════════════════════════════════════
+   NOTIFICAÇÕES PUSH — SW + Servidor Render
+═════════════════════════════════════════ */
+
+async function _registrarSW() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    console.warn('[SW] Navegador não suporta Push/ServiceWorker');
+    return;
+  }
+  try {
+    const reg = await navigator.serviceWorker.register('sw.js');
+    _swRegistration = reg;
+    await navigator.serviceWorker.ready;
+    console.log('[SW] Registrado e ativo');
+    const res     = await fetch(SERVER_URL + '/vapid-public-key');
+    const { key } = await res.json();
+    let sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      sub = await reg.pushManager.subscribe({
+        userVisibleOnly:      true,
+        applicationServerKey: _urlBase64ToUint8Array(key)
+      });
+    }
+    for (const room of rooms) {
+      if (!room.alerts || !room.alerts.notifyEnabled) continue;
+      await _subscribeRoom(room, sub);
+    }
+    console.log('[PUSH] SW e subscriptions registrados');
+  } catch(e) {
+    console.warn('[SW] Erro:', e.message);
+  }
+}
+
+async function _subscribeRoom(room, sub) {
+  try {
+    if (!sub) {
+      if (!_swRegistration) return;
+      sub = await _swRegistration.pushManager.getSubscription();
+      if (!sub) return;
+    }
+    const a = room.alerts || {};
+    await fetch(SERVER_URL + '/subscribe', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        deviceId:     room.id,
+        subscription: sub.toJSON(),
+        alerts: {
+          minTemp: a.minTemp != null ? a.minTemp : null,
+          maxTemp: a.maxTemp != null ? a.maxTemp : null,
+          minHum:  a.minHum  != null ? a.minHum  : null,
+          maxHum:  a.maxHum  != null ? a.maxHum  : null
+        }
+      })
+    });
+  } catch(e) {
+    console.warn('[PUSH] Falha ao registrar room no servidor:', e.message);
+  }
+}
+
+function _urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64  = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw     = atob(base64);
+  return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+}
+
+const _NOTIF_ICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="52" font-size="56">🌡️</text></svg>');
+
+function enviarNotificacao(titulo, corpo, tag) {
+  if (Notification.permission !== 'granted') return;
+  const opts = { body: corpo, icon: _NOTIF_ICON, tag: tag || 'ambientwatch', renotify: true };
+  if (_swRegistration) {
+    _swRegistration.showNotification(titulo, opts).catch(() => {
+      try { new Notification(titulo, opts); } catch(e) {}
+    });
+  } else {
+    try { new Notification(titulo, opts); } catch(e) {}
+  }
+}
+
+async function _pedirPermissaoNotificacao() {
+  if (!('Notification' in window)) return false;
+  if (Notification.permission === 'granted') {
+    _notifPermissao = true;
+    await _registrarSW();
+    return true;
+  }
+  if (Notification.permission === 'denied') return false;
+  const p = await Notification.requestPermission();
+  _notifPermissao = (p === 'granted');
+  if (_notifPermissao) await _registrarSW();
+  return _notifPermissao;
+}
+
+function _atualizarUINotif() {
+  const chk   = document.getElementById('aNotifyEnabled');
+  const box   = document.getElementById('notifyPermBox');
+  const msgEl = document.getElementById('notifStatusMsg');
+  if (!chk || !box) return;
+  let txt = '';
+  if (!('Notification' in window))              txt = '❌ Navegador não suporta notificações';
+  else if (Notification.permission === 'denied') txt = '🚫 Permissão negada — habilite nas configurações';
+  else if (Notification.permission === 'granted') txt = '✅ Permissão concedida';
+  else                                            txt = '⏳ Permissão não solicitada';
+  if (msgEl) msgEl.textContent = txt;
+  box.style.display = (chk.checked && Notification.permission !== 'granted') ? 'block' : 'none';
+}
+
+document.getElementById('aNotifyEnabled').addEventListener('change', _atualizarUINotif);
+
+document.getElementById('btnRequestNotifyPerm').addEventListener('click', async () => {
+  const ok = await _pedirPermissaoNotificacao();
+  _atualizarUINotif();
+  toast(ok ? '✅ Notificações permitidas!' : '⛔ Permissão negada.', ok ? 'success' : 'error', 4000);
+});
 
 window.removeRoom = removeRoom;
 
