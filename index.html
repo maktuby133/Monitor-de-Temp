@@ -1670,11 +1670,24 @@ async function _registrarSW() {
         applicationServerKey: _urlBase64ToUint8Array(key)
       });
     }
+    // Sempre re-envia ao servidor (garante que sobrevive a reinicializações do Render)
     for (const room of rooms) {
       if (!room.alerts || !room.alerts.notifyEnabled) continue;
       await _subscribeRoom(room, sub);
     }
-    console.log('[PUSH] SW e subscriptions registrados');
+    console.log('[PUSH] SW e subscriptions registrados/atualizados no servidor');
+    // Re-registra a cada 10 minutos enquanto a página estiver aberta
+    setInterval(async () => {
+      try {
+        const s = await reg.pushManager.getSubscription();
+        if (!s) return;
+        for (const room of rooms) {
+          if (!room.alerts || !room.alerts.notifyEnabled) continue;
+          await _subscribeRoom(room, s);
+        }
+        console.log('[PUSH] Subscriptions re-enviadas ao servidor');
+      } catch(e) {}
+    }, 10 * 60 * 1000);
   } catch(e) {
     console.warn('[SW] Erro:', e.message);
   }
