@@ -913,20 +913,27 @@ function updateCardData(roomId, data) {
                       (a.maxHum  !== null && hum  > a.maxHum);
     const badge = document.getElementById(`alertbadge-${roomId}`);
     if (badge) badge.style.display = triggered ? 'inline-flex' : 'none';
-    if (triggered && !room._alerted) {
-      room._alerted = true;
-      let msgs = [];
-      if (a.minTemp !== null && temp < a.minTemp) msgs.push(`Temp baixa: ${temp.toFixed(1)}°C (mín ${a.minTemp}°C)`);
-      if (a.maxTemp !== null && temp > a.maxTemp) msgs.push(`Temp alta: ${temp.toFixed(1)}°C (máx ${a.maxTemp}°C)`);
-      if (a.minHum  !== null && hum  < a.minHum)  msgs.push(`Umidade baixa: ${hum.toFixed(1)}% (mín ${a.minHum}%)`);
-      if (a.maxHum  !== null && hum  > a.maxHum)  msgs.push(`Umidade alta: ${hum.toFixed(1)}% (máx ${a.maxHum}%)`);
-      toast(`⚠ ${room.label}: ${msgs.join(' | ')}`, 'error', 8000);
-      // Notificação push via SW (funciona com aba minimizada/fechada)
-      if (a.notifyEnabled) {
-        enviarNotificacao(`⚠ AmbientWatch — ${room.label}`, msgs.join('\n'), 'alert-' + roomId);
+    if (triggered) {
+      const agora = Date.now();
+      const REPEAT_MS = 60 * 1000; // repete a cada 1 minuto até confirmar
+      const ultima = room._alertLastTime || 0;
+      if (!room._alertConfirmado && (agora - ultima) >= REPEAT_MS) {
+        room._alertLastTime = agora;
+        let msgs = [];
+        if (a.minTemp !== null && temp < a.minTemp) msgs.push(`Temp baixa: ${temp.toFixed(1)}°C (mín ${a.minTemp}°C)`);
+        if (a.maxTemp !== null && temp > a.maxTemp) msgs.push(`Temp alta: ${temp.toFixed(1)}°C (máx ${a.maxTemp}°C)`);
+        if (a.minHum  !== null && hum  < a.minHum)  msgs.push(`Umidade baixa: ${hum.toFixed(1)}% (mín ${a.minHum}%)`);
+        if (a.maxHum  !== null && hum  > a.maxHum)  msgs.push(`Umidade alta: ${hum.toFixed(1)}% (máx ${a.maxHum}%)`);
+        toast(`⚠ ${room.label}: ${msgs.join(' | ')}`, 'error', 8000);
+        if (a.notifyEnabled) {
+          enviarNotificacao(`⚠ AmbientWatch — ${room.label}`, msgs.join('\n'), 'alert-' + roomId);
+        }
       }
+    } else {
+      // Nível voltou ao normal — reseta tudo
+      room._alertLastTime    = 0;
+      room._alertConfirmado  = false;
     }
-    if (!triggered) room._alerted = false;
   }
 
   if (card) {
@@ -1758,6 +1765,11 @@ document.addEventListener('DOMContentLoaded', () => {
     _atualizarUINotif();
     toast(ok ? '✅ Notificações permitidas!' : '⛔ Permissão negada.', ok ? 'success' : 'error', 4000);
   });
+});
+
+// Confirma alertas quando o usuário volta para a aba (viu a notificação)
+window.addEventListener('focus', () => {
+  rooms.forEach(r => { r._alertConfirmado = true; });
 });
 
 window.removeRoom = removeRoom;
