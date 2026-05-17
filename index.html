@@ -1749,12 +1749,15 @@ function _atualizarUINotif() {
   box.style.display = (chk.checked && Notification.permission !== 'granted') ? 'block' : 'none';
 }
 
-document.getElementById('aNotifyEnabled').addEventListener('change', _atualizarUINotif);
-
-document.getElementById('btnRequestNotifyPerm').addEventListener('click', async () => {
-  const ok = await _pedirPermissaoNotificacao();
-  _atualizarUINotif();
-  toast(ok ? '✅ Notificações permitidas!' : '⛔ Permissão negada.', ok ? 'success' : 'error', 4000);
+document.addEventListener('DOMContentLoaded', () => {
+  const elNotify = document.getElementById('aNotifyEnabled');
+  const elPerm   = document.getElementById('btnRequestNotifyPerm');
+  if (elNotify) elNotify.addEventListener('change', _atualizarUINotif);
+  if (elPerm)   elPerm.addEventListener('click', async () => {
+    const ok = await _pedirPermissaoNotificacao();
+    _atualizarUINotif();
+    toast(ok ? '✅ Notificações permitidas!' : '⛔ Permissão negada.', ok ? 'success' : 'error', 4000);
+  });
 });
 
 window.removeRoom = removeRoom;
