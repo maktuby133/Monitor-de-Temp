@@ -24,7 +24,6 @@ const VAPID_EMAIL   = process.env.VAPID_EMAIL   || 'mailto:seu@email.com';
 webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
 
 // ── MQTT ─────────────────────────────────────────────
-// Mesmas credenciais que o dashboard usa
 const MQTT_HOST = process.env.MQTT_HOST || '07847a67e2944aca805e81e761a6f177.s1.eu.hivemq.cloud';
 const MQTT_USER = process.env.MQTT_USER || 'monitortemp';
 const MQTT_PASS = process.env.MQTT_PASS || '061084Cc@';
@@ -56,7 +55,7 @@ const subscriptions = {};
 
 // Controle anti-spam: lastAlert[deviceId] = timestamp do último alerta
 const lastAlert = {};
-const ALERT_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos entre alertas
+const ALERT_INTERVAL_MS = 60 * 1000; // 1 minuto entre alertas
 
 // ── PROCESSAR MENSAGEM MQTT ──────────────────────────
 mqttClient.on('message', async (topic, message) => {
