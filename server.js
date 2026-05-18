@@ -1,14 +1,13 @@
 // ╔══════════════════════════════════════════════════════╗
-// ║   SERVIDOR MQTT + WEB PUSH — AmbientWatch            ║
+// ║   SERVIDOR MQTT + WEB PUSH — Monitor Caixa d'Água   ║
 // ║   Deploy: Render.com                                 ║
 // ╚══════════════════════════════════════════════════════╝
 
-const express  = require('express');
-const cors     = require('cors');
-const mqtt     = require('mqtt');
-const webpush  = require('web-push');
-const fs       = require('fs');
-const path     = require('path');
+const express    = require('express');
+const cors       = require('cors');
+const mqtt       = require('mqtt');
+const webpush    = require('web-push');
+const { GoogleAuth } = require('google-auth-library');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -17,54 +16,51 @@ app.use(cors());
 app.use(express.json());
 
 // ── VAPID (Web Push) ─────────────────────────────────
-const VAPID_PUBLIC  = process.env.VAPID_PUBLIC  || 'BGMRvzyBhYUXgyrWjUxFGoy9e8iMs9ukZWNTUTpmgSfb9ZLj_f5EaVr6cyeTn77XLk2y_dcqmlNO3NuK0o8Iilo';
-const VAPID_PRIVATE = process.env.VAPID_PRIVATE || 'Qg9yk6vNtlJoZBeCjdtDipCujRrZHo91OuN_oA74e84';
+// Gere uma vez com: npx web-push generate-vapid-keys
+// e coloque nas variáveis de ambiente do Render
+const VAPID_PUBLIC  = process.env.VAPID_PUBLIC  || 'BKZTXi7NhdwJyCTMv4XLNC9B1ptSBzieezMmxB4MEIXF1i8m89LGpM-Hu___kdtVzU6TcLFHv9YWrPW0McbGgqg';
+const VAPID_PRIVATE = process.env.VAPID_PRIVATE || 'v55TLAR120DtveA4e-UswjTprXfm-0crSpgcp3dYTvQ';
 const VAPID_EMAIL   = process.env.VAPID_EMAIL   || 'mailto:seu@email.com';
 
 webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC, VAPID_PRIVATE);
 
-// ── MQTT ─────────────────────────────────────────────
-const MQTT_HOST = process.env.MQTT_HOST || '07847a67e2944aca805e81e761a6f177.s1.eu.hivemq.cloud';
-const MQTT_USER = process.env.MQTT_USER || 'monitortemp';
-const MQTT_PASS = process.env.MQTT_PASS || '061084Cc@';
+// ── FCM via Service Account ──────────────────────────
+const FCM_PROJECT_ID = 'monitor-caixa-agua-ce666';
+const FCM_URL = `https://fcm.googleapis.com/v1/projects/${FCM_PROJECT_ID}/messages:send`;
 
-// ── PERSISTÊNCIA DE SUBSCRIPTIONS ────────────────────
-// Salva em disco para sobreviver a reinicializações do Render
-const SUBS_FILE = path.join('/tmp', 'ambientwatch_subs.json');
-
-function loadSubscriptions() {
-  try {
-    if (fs.existsSync(SUBS_FILE)) {
-      const data = JSON.parse(fs.readFileSync(SUBS_FILE, 'utf8'));
-      console.log('[SUBS] Carregadas do disco:', Object.keys(data).length, 'devices');
-      return data;
-    }
-  } catch(e) {
-    console.warn('[SUBS] Erro ao carregar do disco:', e.message);
-  }
-  return {};
+// Service account carregado da env var (JSON stringificado)
+let serviceAccount = null;
+try {
+  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT || '{}');
+} catch(e) {
+  console.error('[FCM] Erro ao parsear FIREBASE_SERVICE_ACCOUNT:', e.message);
 }
 
-function saveSubscriptions() {
+async function getFCMToken() {
+  if (!serviceAccount || !serviceAccount.private_key) return null;
   try {
-    fs.writeFileSync(SUBS_FILE, JSON.stringify(subscriptions), 'utf8');
+    const auth = new GoogleAuth({
+      credentials: serviceAccount,
+      scopes: ['https://www.googleapis.com/auth/firebase.messaging']
+    });
+    const client = await auth.getClient();
+    const token  = await client.getAccessToken();
+    return token.token;
   } catch(e) {
-    console.warn('[SUBS] Erro ao salvar no disco:', e.message);
+    console.error('[FCM] Erro ao obter token:', e.message);
+    return null;
   }
 }
 
-// subscriptions[deviceId] = [ { subscription, alerts: { minTemp, maxTemp, minHum, maxHum } }, ... ]
-const subscriptions = loadSubscriptions();
-
-// Controle anti-spam: lastAlert[deviceId] = timestamp do último alerta
-const lastAlert = {};
-const ALERT_INTERVAL_MS = 60 * 1000; // 1 minuto entre alertas
-
 // ── MQTT ─────────────────────────────────────────────
+const MQTT_HOST = '13efa30a8367496d82053ae1fec856fb.s1.eu.hivemq.cloud';
+const MQTT_USER = 'esp32-Project';
+const MQTT_PASS = '061084Cca';
+
 const mqttClient = mqtt.connect(`mqtts://${MQTT_HOST}:8883`, {
   username:           MQTT_USER,
   password:           MQTT_PASS,
-  clientId:           'ambientwatch-server-01',
+  clientId:           'render-server-01',
   rejectUnauthorized: false,
   reconnectPeriod:    5000,
   keepalive:          60,
@@ -73,119 +69,262 @@ const mqttClient = mqtt.connect(`mqtts://${MQTT_HOST}:8883`, {
 
 mqttClient.on('connect', () => {
   console.log('[MQTT] Conectado ao HiveMQ');
-  mqttClient.subscribe('sensors/+/data', err => {
-    if (!err) console.log('[MQTT] Subscrito em sensors/+/data');
+  // Subscreve em todos os devices: caixas/agua/+/dados
+  mqttClient.subscribe('caixas/agua/+/dados', err => {
+    if (!err) console.log('[MQTT] Subscrito em caixas/agua/+/dados');
   });
 });
 
-mqttClient.on('error',     e  => console.error('[MQTT] Erro:', e.message));
+mqttClient.on('error',     e  => console.error('[MQTT] Erro:', e.message, '| user:', MQTT_USER, '| host:', MQTT_HOST));
 mqttClient.on('reconnect', () => console.log('[MQTT] Reconectando...'));
+
+// ── PERSISTÊNCIA DE SUBSCRIPTIONS ────────────────────
+// Render.com reinicia o servidor e perde a memória — salva em disco
+const fs   = require('fs');
+const path = require('path');
+const SUBS_FILE = path.join('/tmp', 'subscriptions.json');
+
+function salvarSubscriptions() {
+  try {
+    fs.writeFileSync(SUBS_FILE, JSON.stringify({ subscriptions, fcmTokens }));
+  } catch(e) {
+    console.error('[PERSIST] Erro ao salvar:', e.message);
+  }
+}
+
+function carregarSubscriptions() {
+  try {
+    if (fs.existsSync(SUBS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(SUBS_FILE, 'utf8'));
+      Object.assign(subscriptions, data.subscriptions || {});
+      Object.assign(fcmTokens,     data.fcmTokens     || {});
+      const totalSubs = Object.values(subscriptions).reduce((a, b) => a + b.length, 0);
+      console.log(`[PERSIST] Subscriptions carregadas: ${totalSubs} web push`);
+    }
+  } catch(e) {
+    console.error('[PERSIST] Erro ao carregar:', e.message);
+  }
+}
+
+// ── ARMAZENAMENTO ────────────────────────────────────
+// subscriptions[deviceId] = [ { subscription, nivelCritico, nivelEnchendo }, ... ]
+const subscriptions = {};
+
+// fcmTokens[deviceId] = [ { token, nivelCritico, nivelEnchendo }, ... ]
+const fcmTokens = {};
+
+// Controle de alertas: evita spam
+// lastAlert[deviceId] = timestamp do último alerta enviado
+const lastAlert = {};
+const ALERT_INTERVAL_MS = 1 * 60 * 1000; // 1 minuto entre alertas
+
+// Carrega subscriptions salvas (sobrevive ao restart do Render)
+carregarSubscriptions();
 
 // ── PROCESSAR MENSAGEM MQTT ──────────────────────────
 mqttClient.on('message', async (topic, message) => {
   try {
+    // Extrair deviceId do tópico: caixas/agua/DEVICEID/dados
     const parts    = topic.split('/');
-    const deviceId = parts[1];
+    const deviceId = parts[2];
     const payload  = JSON.parse(message.toString());
 
-    if (payload.sensor_error) return;
-    const temp = parseFloat(payload.temperature);
-    const hum  = parseFloat(payload.humidity);
-    if (isNaN(temp) || isNaN(hum)) return;
+    if (payload.cached) return; // ignora dados de cache
 
+    const pct = parseInt(payload.percentage);
+    if (isNaN(pct)) return;
+
+    console.log(`[MQTT] Device ${deviceId}: ${pct}%`);
+
+    // Verificar subscriptions deste device
     const subs = subscriptions[deviceId] || [];
-    if (subs.length === 0) return;
+    const tkns = fcmTokens[deviceId]     || [];
 
+    if (subs.length === 0 && tkns.length === 0) return;
+
+    // Throttle — não spama notificações
     const agora    = Date.now();
     const lastTime = lastAlert[deviceId] || 0;
     if (agora - lastTime < ALERT_INTERVAL_MS) return;
 
-    const label = payload.label || deviceId;
+    // Verificar se algum subscriber tem alerta para este nível
+    let titulo = null;
+    let corpo  = null;
 
+    // Checa nível crítico e enchimento para cada subscriber individualmente
+    // (cada um pode ter limites diferentes)
+    // Por simplicidade usa o primeiro subscriber como referência de limites
+    const nivelCritico  = subs[0]?.nivelCritico  || tkns[0]?.nivelCritico  || 20;
+    const nivelEnchendo = subs[0]?.nivelEnchendo || tkns[0]?.nivelEnchendo || 80;
+
+    if (pct <= nivelCritico) {
+      titulo = '⚠️ Caixa d\'água crítica!';
+      corpo  = `Nível em ${pct}% — abaixo de ${nivelCritico}%. Verifique a caixa.`;
+    } else if (pct >= nivelEnchendo) {
+      titulo = '💧 Caixa abastecida!';
+      corpo  = `Nível atingiu ${pct}% — caixa com bom volume.`;
+    }
+
+    if (!titulo) return;
+
+    lastAlert[deviceId] = agora;
+    console.log(`[NOTIF] Disparando alerta para device ${deviceId}: ${titulo}`);
+
+    // Enviar Web Push para todos os subscribers
     for (const sub of subs) {
-      const a = sub.alerts || {};
-      const msgs = [];
-
-      if (a.minTemp != null && temp < a.minTemp) msgs.push(`Temp baixa: ${temp.toFixed(1)}°C (mín ${a.minTemp}°C)`);
-      if (a.maxTemp != null && temp > a.maxTemp) msgs.push(`Temp alta: ${temp.toFixed(1)}°C (máx ${a.maxTemp}°C)`);
-      if (a.minHum  != null && hum  < a.minHum)  msgs.push(`Umid baixa: ${hum.toFixed(1)}% (mín ${a.minHum}%)`);
-      if (a.maxHum  != null && hum  > a.maxHum)  msgs.push(`Umid alta: ${hum.toFixed(1)}% (máx ${a.maxHum}%)`);
-
-      if (msgs.length === 0) continue;
-
-      lastAlert[deviceId] = agora;
-      const titulo = `⚠️ AmbientWatch — ${label}`;
-      const corpo  = msgs.join(' | ');
-      console.log(`[NOTIF] Alerta para ${deviceId}: ${corpo}`);
-
       try {
-        await webpush.sendNotification(
-          sub.subscription,
-          JSON.stringify({ titulo, corpo, tag: 'alert-' + deviceId })
-        );
-        console.log(`[WEBPUSH] Enviado para ${deviceId}`);
+        await webpush.sendNotification(sub.subscription, JSON.stringify({ titulo, corpo }));
+        console.log(`[WEBPUSH] Enviado com sucesso`);
       } catch(e) {
-        console.error('[WEBPUSH] Erro:', e.statusCode, e.body);
+        console.error(`[WEBPUSH] Erro:`, e.statusCode, e.body);
+        // Remove subscription inválida (410 = expirada)
         if (e.statusCode === 410 || e.statusCode === 404) {
           subscriptions[deviceId] = subscriptions[deviceId].filter(s => s !== sub);
-          saveSubscriptions();
+        }
+      }
+    }
+
+    // Enviar FCM para tokens registrados
+    const fcmToken = await getFCMToken();
+    if (fcmToken) {
+      for (const tk of tkns) {
+        try {
+          const res = await fetch(FCM_URL, {
+            method:  'POST',
+            headers: {
+              'Authorization': `Bearer ${fcmToken}`,
+              'Content-Type':  'application/json'
+            },
+            body: JSON.stringify({
+              message: {
+                token: tk.token,
+                notification: { title: titulo, body: corpo },
+                webpush: {
+                  notification: {
+                    title: titulo,
+                    body:  corpo,
+                    icon:  '/icon-192.png',
+                    badge: '/icon-192.png'
+                  }
+                }
+              }
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) console.error('[FCM] Erro:', JSON.stringify(data));
+          else console.log('[FCM] Enviado com sucesso');
+        } catch(e) {
+          console.error('[FCM] Erro ao enviar:', e.message);
         }
       }
     }
   } catch(e) {
-    console.error('[MQTT] Erro ao processar:', e.message);
+    console.error('[MQTT] Erro ao processar mensagem:', e.message);
   }
 });
 
 // ── ROTAS HTTP ───────────────────────────────────────
 
+// Ping — mantém o Render acordado (UptimeRobot chama esta rota)
 app.get('/ping', (req, res) => {
   res.json({ status: 'ok', uptime: Math.floor(process.uptime()) + 's' });
 });
 
+// Retorna a VAPID public key para o browser registrar o SW
 app.get('/vapid-public-key', (req, res) => {
   res.json({ key: VAPID_PUBLIC });
 });
 
-// Browser registra ou atualiza subscription Web Push
+// Browser registra subscription Web Push
 app.post('/subscribe', (req, res) => {
-  const { deviceId, subscription, alerts } = req.body;
+  const { deviceId, subscription, nivelCritico, nivelEnchendo } = req.body;
   if (!deviceId || !subscription) return res.status(400).json({ error: 'Faltam dados' });
 
   if (!subscriptions[deviceId]) subscriptions[deviceId] = [];
 
+  // Evita duplicata (mesmo endpoint)
   const existe = subscriptions[deviceId].find(s => s.subscription.endpoint === subscription.endpoint);
   if (!existe) {
-    subscriptions[deviceId].push({ subscription, alerts: alerts || {} });
-    console.log(`[SUB] Nova subscription para ${deviceId} (total: ${subscriptions[deviceId].length})`);
+    subscriptions[deviceId].push({ subscription, nivelCritico: nivelCritico || 20, nivelEnchendo: nivelEnchendo || 80 });
+    console.log(`[SUB] Nova subscription Web Push para device ${deviceId} (total: ${subscriptions[deviceId].length})`);
   } else {
-    existe.alerts = alerts || existe.alerts;
-    console.log(`[SUB] Atualizada para ${deviceId}`);
+    // Atualiza limites
+    existe.nivelCritico  = nivelCritico  || 20;
+    existe.nivelEnchendo = nivelEnchendo || 80;
+    console.log(`[SUB] Subscription atualizada para device ${deviceId}`);
   }
 
-  saveSubscriptions();
+  salvarSubscriptions();
   res.json({ ok: true });
 });
 
-app.post('/update-alerts', (req, res) => {
-  const { deviceId, alerts } = req.body;
+// Browser registra token FCM
+app.post('/subscribe-fcm', (req, res) => {
+  const { deviceId, token, nivelCritico, nivelEnchendo } = req.body;
+  if (!deviceId || !token) return res.status(400).json({ error: 'Faltam dados' });
+
+  if (!fcmTokens[deviceId]) fcmTokens[deviceId] = [];
+
+  const existe = fcmTokens[deviceId].find(t => t.token === token);
+  if (!existe) {
+    fcmTokens[deviceId].push({ token, nivelCritico: nivelCritico || 20, nivelEnchendo: nivelEnchendo || 80 });
+    console.log(`[FCM] Novo token FCM para device ${deviceId}`);
+  } else {
+    existe.nivelCritico  = nivelCritico  || 20;
+    existe.nivelEnchendo = nivelEnchendo || 80;
+  }
+
+  res.json({ ok: true });
+});
+
+// Browser cancela subscription Web Push
+app.post('/unsubscribe', (req, res) => {
+  const { deviceId, endpoint } = req.body;
+  if (!deviceId) return res.status(400).json({ error: 'deviceId obrigatório' });
+
+  if (subscriptions[deviceId]) {
+    const antes = subscriptions[deviceId].length;
+    subscriptions[deviceId] = subscriptions[deviceId].filter(
+      s => s.subscription.endpoint !== endpoint
+    );
+    const removidos = antes - subscriptions[deviceId].length;
+    console.log(`[UNSUB] Device ${deviceId}: ${removidos} subscription(s) removida(s) (total: ${subscriptions[deviceId].length})`);
+  }
+  salvarSubscriptions();
+  res.json({ ok: true });
+});
+
+// Atualiza limites de notificação para um device
+app.post('/update-config', (req, res) => {
+  const { deviceId, nivelCritico, nivelEnchendo } = req.body;
   if (!deviceId) return res.status(400).json({ error: 'deviceId obrigatório' });
 
   const subs = subscriptions[deviceId] || [];
-  subs.forEach(s => { s.alerts = alerts || s.alerts; });
-  saveSubscriptions();
+  subs.forEach(s => {
+    s.nivelCritico  = nivelCritico  ?? s.nivelCritico;
+    s.nivelEnchendo = nivelEnchendo ?? s.nivelEnchendo;
+  });
 
-  console.log(`[CONFIG] Alertas atualizados para ${deviceId}:`, alerts);
+  const tkns = fcmTokens[deviceId] || [];
+  tkns.forEach(t => {
+    t.nivelCritico  = nivelCritico  ?? t.nivelCritico;
+    t.nivelEnchendo = nivelEnchendo ?? t.nivelEnchendo;
+  });
+
+  console.log(`[CONFIG] Device ${deviceId}: crítico=${nivelCritico}% enchendo=${nivelEnchendo}%`);
   res.json({ ok: true });
 });
 
+// Status geral
 app.get('/', (req, res) => {
   const totalSubs = Object.values(subscriptions).reduce((a, b) => a + b.length, 0);
+  const totalFcm  = Object.values(fcmTokens).reduce((a, b) => a + b.length, 0);
   res.json({
-    status:  'online',
-    mqtt:    mqttClient.connected ? 'conectado' : 'desconectado',
-    webpush: totalSubs + ' subscriptions',
-    uptime:  Math.floor(process.uptime()) + 's'
+    status:   'online',
+    mqtt:     mqttClient.connected ? 'conectado' : 'desconectado',
+    webpush:  totalSubs + ' subscriptions',
+    fcm:      totalFcm  + ' tokens',
+    uptime:   Math.floor(process.uptime()) + 's'
   });
 });
 
