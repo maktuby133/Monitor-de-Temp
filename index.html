@@ -2,14 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="AmbientWatch">
-<meta name="theme-color" content="#0d1628">
-<link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" href="icon-192.svg">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AmbientWatch — Monitor de Ambientes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
@@ -371,46 +364,6 @@ header {
 .toast.error   { background:rgba(248,113,113,.1); border-color:rgba(248,113,113,.3); color:var(--red); }
 .toast.info    { background:var(--accent-dim); border-color:var(--border-h); color:var(--accent); }
 
-/* ─── PWA INSTALL BANNER ─── */
-.pwa-banner {
-  position:fixed; bottom:0; left:0; right:0;
-  background:var(--surface); border-top:1px solid var(--border-h);
-  padding:14px 20px 20px;
-  padding-bottom: max(20px, env(safe-area-inset-bottom));
-  display:flex; align-items:center; gap:14px;
-  z-index:9998; transform:translateY(100%);
-  transition:transform .35s cubic-bezier(.4,0,.2,1);
-  box-shadow:0 -8px 32px rgba(0,0,0,.5);
-}
-.pwa-banner.show { transform:translateY(0); }
-.pwa-banner-icon {
-  width:48px; height:48px; border-radius:12px; flex-shrink:0;
-  background:var(--accent-dim); border:1px solid var(--border-h);
-  display:grid; place-items:center; font-size:1.4rem;
-}
-.pwa-banner-text { flex:1; min-width:0; }
-.pwa-banner-text strong { display:block; font-family:'Syne',sans-serif; font-size:.95rem; font-weight:700; color:var(--text-1); }
-.pwa-banner-text span   { font-size:.75rem; color:var(--text-3); }
-.pwa-banner-btn {
-  padding:9px 18px; border-radius:var(--radius-sm);
-  border:1px solid var(--accent); background:var(--accent-dim);
-  color:var(--accent); font-family:'DM Sans',sans-serif;
-  font-size:.85rem; font-weight:600; cursor:pointer; white-space:nowrap;
-  transition:all .2s; flex-shrink:0;
-}
-.pwa-banner-btn:hover { background:rgba(56,189,248,.3); }
-.pwa-banner-close {
-  width:28px; height:28px; border-radius:8px; border:1px solid var(--border);
-  background:transparent; color:var(--text-3); cursor:pointer;
-  display:grid; place-items:center; font-size:.9rem; flex-shrink:0;
-}
-.pwa-banner-close:hover { color:var(--text-1); border-color:var(--border-h); }
-
-/* Safe area para notch/barra iOS */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .app { padding-bottom: max(80px, calc(60px + env(safe-area-inset-bottom))); }
-}
-
 @media (max-width:600px) {
   .rooms-grid { grid-template-columns:1fr; }
   header { flex-direction:column; align-items:flex-start; }
@@ -723,17 +676,6 @@ header {
 <!-- TOASTS -->
 <div class="toast-wrap" id="toastWrap"></div>
 
-<!-- PWA INSTALL BANNER -->
-<div class="pwa-banner" id="pwaBanner">
-  <div class="pwa-banner-icon">🌡️</div>
-  <div class="pwa-banner-text">
-    <strong>Instalar AmbientWatch</strong>
-    <span>Adicione à tela inicial para acesso rápido</span>
-  </div>
-  <button class="pwa-banner-btn" id="pwaBannerInstall">Instalar</button>
-  <button class="pwa-banner-close" id="pwaBannerClose">✕</button>
-</div>
-
 <!-- MODAL ALERTAS -->
 <div class="modal-overlay" id="alertModal">
   <div class="modal">
@@ -799,10 +741,14 @@ let _mqttCfg = { broker:'', port:8884, user:'', pass:'' };
 const _pendingAuth = {};
 
 // ── NOTIFICAÇÕES PUSH ─────────────────────────────────
-const SERVER_URL    = 'https://testeservidor-6opr.onrender.com';
+const SERVER_URL    = 'https://ambientwatch-server.onrender.com'; // URL do seu servidor no Render
 let _swRegistration = null;   // ServiceWorkerRegistration ativo
 let _notifPermissao = false;  // permissão concedida pelo browser
-// _registrarSW é chamado no DOMContentLoaded (declarado mais abaixo)
+// Inicializa: se já tinha permissão, registra o SW imediatamente
+if ('Notification' in window && Notification.permission === 'granted') {
+  _notifPermissao = true;
+  window.addEventListener('load', () => _registrarSW());
+}
 
 /* ═════════════════════════════════════════
    UTILS
@@ -813,7 +759,7 @@ function saveRooms() { localStorage.setItem('amb_rooms', JSON.stringify(rooms));
 // Tenta reconectar com credenciais salvas no localStorage
 function ensureMqtt() {
   if (_mqttCfg.broker) return;
-  const saved = localStorage.getItem('amb_mqtt_cfg');
+  const saved = null; // não carrega mais do localStorage
   if (saved) {
     try {
       const m = JSON.parse(saved);
@@ -967,27 +913,20 @@ function updateCardData(roomId, data) {
                       (a.maxHum  !== null && hum  > a.maxHum);
     const badge = document.getElementById(`alertbadge-${roomId}`);
     if (badge) badge.style.display = triggered ? 'inline-flex' : 'none';
-    if (triggered) {
-      const agora = Date.now();
-      const REPEAT_MS = 60 * 1000; // repete a cada 1 minuto até confirmar
-      const ultima = room._alertLastTime || 0;
-      if (!room._alertConfirmado && (agora - ultima) >= REPEAT_MS) {
-        room._alertLastTime = agora;
-        let msgs = [];
-        if (a.minTemp !== null && temp < a.minTemp) msgs.push(`Temp baixa: ${temp.toFixed(1)}°C (mín ${a.minTemp}°C)`);
-        if (a.maxTemp !== null && temp > a.maxTemp) msgs.push(`Temp alta: ${temp.toFixed(1)}°C (máx ${a.maxTemp}°C)`);
-        if (a.minHum  !== null && hum  < a.minHum)  msgs.push(`Umidade baixa: ${hum.toFixed(1)}% (mín ${a.minHum}%)`);
-        if (a.maxHum  !== null && hum  > a.maxHum)  msgs.push(`Umidade alta: ${hum.toFixed(1)}% (máx ${a.maxHum}%)`);
-        toast(`⚠ ${room.label}: ${msgs.join(' | ')}`, 'error', 8000);
-        if (a.notifyEnabled) {
-          enviarNotificacao(`⚠ AmbientWatch — ${room.label}`, msgs.join('\n'), 'alert-' + roomId);
-        }
+    if (triggered && !room._alerted) {
+      room._alerted = true;
+      let msgs = [];
+      if (a.minTemp !== null && temp < a.minTemp) msgs.push(`Temp baixa: ${temp.toFixed(1)}°C (mín ${a.minTemp}°C)`);
+      if (a.maxTemp !== null && temp > a.maxTemp) msgs.push(`Temp alta: ${temp.toFixed(1)}°C (máx ${a.maxTemp}°C)`);
+      if (a.minHum  !== null && hum  < a.minHum)  msgs.push(`Umidade baixa: ${hum.toFixed(1)}% (mín ${a.minHum}%)`);
+      if (a.maxHum  !== null && hum  > a.maxHum)  msgs.push(`Umidade alta: ${hum.toFixed(1)}% (máx ${a.maxHum}%)`);
+      toast(`⚠ ${room.label}: ${msgs.join(' | ')}`, 'error', 8000);
+      // Notificação push via SW (funciona com aba minimizada/fechada)
+      if (a.notifyEnabled) {
+        enviarNotificacao(`⚠ AmbientWatch — ${room.label}`, msgs.join('\n'), 'alert-' + roomId);
       }
-    } else {
-      // Nível voltou ao normal — reseta tudo
-      room._alertLastTime    = 0;
-      room._alertConfirmado  = false;
     }
+    if (!triggered) room._alerted = false;
   }
 
   if (card) {
@@ -1148,7 +1087,7 @@ function connectMQTT(broker, port, user, pass) {
 
   _mqttCfg = { broker, port, user, pass };
   // Salva no localStorage para reconectar automaticamente
-  localStorage.setItem('amb_mqtt_cfg', JSON.stringify({ broker, port, user, pass }));
+  // Removido por segurança: credenciais MQTT não são mais salvas no localStorage
 
   const url = `wss://${broker}:${port}/mqtt`;
   let clientId = 'dash_' + Math.random().toString(36).substr(2, 9);
@@ -1724,24 +1663,11 @@ async function _registrarSW() {
         applicationServerKey: _urlBase64ToUint8Array(key)
       });
     }
-    // Sempre re-envia ao servidor (garante que sobrevive a reinicializações do Render)
     for (const room of rooms) {
       if (!room.alerts || !room.alerts.notifyEnabled) continue;
       await _subscribeRoom(room, sub);
     }
-    console.log('[PUSH] SW e subscriptions registrados/atualizados no servidor');
-    // Re-registra a cada 10 minutos enquanto a página estiver aberta
-    setInterval(async () => {
-      try {
-        const s = await reg.pushManager.getSubscription();
-        if (!s) return;
-        for (const room of rooms) {
-          if (!room.alerts || !room.alerts.notifyEnabled) continue;
-          await _subscribeRoom(room, s);
-        }
-        console.log('[PUSH] Subscriptions re-enviadas ao servidor');
-      } catch(e) {}
-    }, 10 * 60 * 1000);
+    console.log('[PUSH] SW e subscriptions registrados');
   } catch(e) {
     console.warn('[SW] Erro:', e.message);
   }
@@ -1781,7 +1707,7 @@ function _urlBase64ToUint8Array(base64String) {
   return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
 }
 
-const _NOTIF_ICON = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgdmlld0JveD0iMCAwIDE5MiAxOTIiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CiAgPGNpcmNsZSBjeD0iOTYiIGN5PSI5NiIgcj0iOTYiIGZpbGw9IiMwZjE3MmEiLz4KICA8Y2lyY2xlIGN4PSI5NiIgY3k9Ijk2IiByPSI4OCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMzhiZGY4IiBzdHJva2Utd2lkdGg9IjEuNSIgb3BhY2l0eT0iMC4zIi8+CiAgPHJlY3QgeD0iODIiIHk9IjIyIiB3aWR0aD0iMjgiIGhlaWdodD0iOTAiIHJ4PSIxNCIgZmlsbD0iIzFlMjkzYiIgc3Ryb2tlPSIjMzhiZGY4IiBzdHJva2Utd2lkdGg9IjEuNSIvPgogIDxyZWN0IHg9Ijg3IiB5PSI2NCIgd2lkdGg9IjE4IiBoZWlnaHQ9IjQ4IiByeD0iMCIgZmlsbD0iIzM4YmRmOCIvPgogIDxyZWN0IHg9Ijg3IiB5PSI2NCIgd2lkdGg9IjE4IiBoZWlnaHQ9IjQiIHJ4PSIwIiBmaWxsPSIjN2RkM2ZjIi8+CiAgPGNpcmNsZSBjeD0iOTYiIGN5PSIxMjQiIHI9IjE2IiBmaWxsPSIjMzhiZGY4Ii8+CiAgPGNpcmNsZSBjeD0iOTYiIGN5PSIxMjQiIHI9IjEwIiBmaWxsPSIjN2RkM2ZjIi8+CiAgPGxpbmUgeDE9IjExMCIgeTE9IjQwIiB4Mj0iMTE3IiB5Mj0iNDAiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIxLjUiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPgogIDxsaW5lIHgxPSIxMTAiIHkxPSI1MiIgeDI9IjExNCIgeTI9IjUyIiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBvcGFjaXR5PSIwLjUiLz4KICA8bGluZSB4MT0iMTEwIiB5MT0iNjQiIHgyPSIxMTciIHkyPSI2NCIgc3Ryb2tlPSIjMzhiZGY4IiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIi8+CiAgPGxpbmUgeDE9IjExMCIgeTE9Ijc2IiB4Mj0iMTE0IiB5Mj0iNzYiIHN0cm9rZT0iIzM4YmRmOCIgc3Ryb2tlLXdpZHRoPSIxIiBzdHJva2UtbGluZWNhcD0icm91bmQiIG9wYWNpdHk9IjAuNSIvPgogIDxsaW5lIHgxPSIxMTAiIHkxPSI4OCIgeDI9IjExNyIgeTI9Ijg4IiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMS41IiBzdHJva2UtbGluZWNhcD0icm91bmQiLz4KICA8ZWxsaXBzZSBjeD0iMTM2IiBjeT0iNDQiIHJ4PSI5IiByeT0iMTEiIGZpbGw9IiMwZWE1ZTkiIG9wYWNpdHk9IjAuNyIvPgogIDxlbGxpcHNlIGN4PSIxMzYiIGN5PSI0MSIgcng9IjQiIHJ5PSIzIiBmaWxsPSIjYmFlNmZkIiBvcGFjaXR5PSIwLjUiLz4KICA8cGF0aCBkPSJNMTIyIDE0OCBRMTM0IDEzNiAxNDYgMTQ4IiBmaWxsPSJub25lIiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBvcGFjaXR5PSIwLjkiLz4KICA8cGF0aCBkPSJNMTI2IDE1NCBRMTM0IDE0NiAxNDIgMTU0IiBmaWxsPSJub25lIiBzdHJva2U9IiMzOGJkZjgiIHN0cm9rZS13aWR0aD0iMiIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBvcGFjaXR5PSIwLjYiLz4KICA8Y2lyY2xlIGN4PSIxMzQiIGN5PSIxNTkiIHI9IjIuNSIgZmlsbD0iIzM4YmRmOCIvPgogIDx0ZXh0IHg9IjMwIiB5PSIxNjAiIGZvbnQtZmFtaWx5PSJtb25vc3BhY2UiIGZvbnQtc2l6ZT0iMTMiIGZvbnQtd2VpZ2h0PSI3MDAiIGZpbGw9IiMzOGJkZjgiIG9wYWNpdHk9IjAuNSIgbGV0dGVyLXNwYWNpbmc9IjEiPkFXPC90ZXh0Pgo8L3N2Zz4=';
+const _NOTIF_ICON = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><text y="52" font-size="56">🌡️</text></svg>');
 
 function enviarNotificacao(titulo, corpo, tag) {
   if (Notification.permission !== 'granted') return;
@@ -1823,25 +1749,12 @@ function _atualizarUINotif() {
   box.style.display = (chk.checked && Notification.permission !== 'granted') ? 'block' : 'none';
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-  const elNotify = document.getElementById('aNotifyEnabled');
-  const elPerm   = document.getElementById('btnRequestNotifyPerm');
-  if (elNotify) elNotify.addEventListener('change', _atualizarUINotif);
-  if (elPerm)   elPerm.addEventListener('click', async () => {
-    const ok = await _pedirPermissaoNotificacao();
-    _atualizarUINotif();
-    toast(ok ? '✅ Notificações permitidas!' : '⛔ Permissão negada.', ok ? 'success' : 'error', 4000);
-  });
-  // Auto-registra SW se permissão já foi concedida anteriormente
-  if ('Notification' in window && Notification.permission === 'granted') {
-    _notifPermissao = true;
-    _registrarSW();
-  }
-});
+document.getElementById('aNotifyEnabled').addEventListener('change', _atualizarUINotif);
 
-// Confirma alertas quando o usuário volta para a aba (viu a notificação)
-window.addEventListener('focus', () => {
-  rooms.forEach(r => { r._alertConfirmado = true; });
+document.getElementById('btnRequestNotifyPerm').addEventListener('click', async () => {
+  const ok = await _pedirPermissaoNotificacao();
+  _atualizarUINotif();
+  toast(ok ? '✅ Notificações permitidas!' : '⛔ Permissão negada.', ok ? 'success' : 'error', 4000);
 });
 
 window.removeRoom = removeRoom;
@@ -1849,50 +1762,6 @@ window.removeRoom = removeRoom;
 renderRooms();
 window.addEventListener('resize', calcCardSize);
 ensureMqtt();
-
-/* ═════════════════════════════════════════
-   PWA — Install prompt & offline cache
-═════════════════════════════════════════ */
-let _pwaPrompt = null;
-const _pwaBanner  = document.getElementById('pwaBanner');
-const _pwaInstall = document.getElementById('pwaBannerInstall');
-const _pwaClose   = document.getElementById('pwaBannerClose');
-
-// Captura o evento de instalação do browser
-window.addEventListener('beforeinstallprompt', e => {
-  e.preventDefault();
-  _pwaPrompt = e;
-  // Só mostra se o usuário nunca dispensou
-  if (!localStorage.getItem('pwa_dismissed')) {
-    setTimeout(() => _pwaBanner.classList.add('show'), 2000);
-  }
-});
-
-_pwaInstall && _pwaInstall.addEventListener('click', async () => {
-  if (!_pwaPrompt) return;
-  _pwaPrompt.prompt();
-  const { outcome } = await _pwaPrompt.userChoice;
-  _pwaPrompt = null;
-  _pwaBanner.classList.remove('show');
-  if (outcome === 'accepted') toast('✅ AmbientWatch instalado!', 'success');
-});
-
-_pwaClose && _pwaClose.addEventListener('click', () => {
-  _pwaBanner.classList.remove('show');
-  localStorage.setItem('pwa_dismissed', '1');
-});
-
-// Esconde banner quando já instalado como PWA
-if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
-  _pwaBanner && _pwaBanner.remove();
-}
-
-// Detecta update do SW e avisa o usuário
-if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    toast('🔄 App atualizado! Recarregue para aplicar.', 'info', 8000);
-  });
-}
 
 // ── Tema claro/escuro ──
 (function(){
