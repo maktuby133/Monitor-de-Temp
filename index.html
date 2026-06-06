@@ -1463,7 +1463,8 @@ function toggleLamp(roomId, state) {
   toast(state ? '💡 Lâmpada ligada' : '💡 Lâmpada desligada', 'info', 2000);
 }
 
-
+/* ═════════════════════════════════════════
+   AUTH VIA MQTT — ESP32 é o guardião da senha
    Fluxo: dashboard publica request → ESP32 compara → publica response
 ═════════════════════════════════════════ */
 const _authPending = {};  // token → { resolve, reject, timer }
